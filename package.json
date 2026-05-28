@@ -1,0 +1,12 @@
+{
+  "name": "pignusdice",
+  "version": "1.0.0",
+  "description": "PigNusDice — 1•4•24 online dice game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

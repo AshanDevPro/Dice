@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>PigNusDice — 1•4•24</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <div class="ad-slot ad-slot-top">📢 Advertisement</div>
+
+  <div class="header">
+    <div class="game-title">PIGNUS DICE</div>
+    <div class="subtitle">1 • 4 • 24 — Lock a 1 &amp; a 4 — Score highest with 4 dice</div>
+  </div>
+
+  <div class="game-layout">
+    <div class="ad-slot ad-slot-side">📢 Ad</div>
+
+    <div class="game-main">
+
+      <!-- ══ ONLINE LOBBY SCREEN ══ -->
+      <div id="lobbyScreen">
+        <div class="setup-title">🌐 ONLINE MULTIPLAYER</div>
+
+        <div id="lobbyConnect">
+          <div class="lobby-row">
+            <label>Your Name</label>
+            <input type="text" id="lobbyName" placeholder="Enter your name" maxlength="18">
+          </div>
+          <div class="lobby-row" style="margin-top:8px;">
+            <label>Server</label>
+            <input type="text" id="lobbyServer" placeholder="ws://yourserver.com or ws://localhost:3000" value="ws://localhost:3000">
+          </div>
+          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
+            <button class="pill-btn pill-btn-roll" id="lobbyCreateBtn" style="flex:1;">🏠 CREATE ROOM</button>
+            <button class="pill-btn pill-btn-end"  id="lobbyJoinBtn"   style="flex:1;">🚪 JOIN ROOM</button>
+          </div>
+          <div id="lobbyJoinRow" style="display:none;margin-top:10px;">
+            <div class="lobby-row">
+              <label>Room Code</label>
+              <input type="text" id="lobbyCode" placeholder="e.g. AB3X" maxlength="4" style="text-transform:uppercase;letter-spacing:0.2em;font-size:1.2rem;">
+            </div>
+            <button class="pill-btn pill-btn-end" id="lobbyJoinConfirmBtn" style="width:100%;margin-top:8px;">✅ JOIN</button>
+          </div>
+        </div>
+
+        <div id="lobbyWaiting" style="display:none;">
+          <div style="text-align:center;padding:20px 0;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--muted);letter-spacing:0.14em;margin-bottom:6px;">ROOM CODE</div>
+            <div id="lobbyRoomCode" style="font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:var(--gold-bright);letter-spacing:0.3em;text-shadow:0 0 20px rgba(255,209,102,0.5);"></div>
+            <div style="font-size:0.8rem;color:var(--muted);margin-top:4px;">Share this code with friends</div>
+          </div>
+          <div id="lobbyPlayerList" style="margin-bottom:16px;"></div>
+          <div id="lobbyStatusMsg" style="text-align:center;color:var(--muted);font-size:0.85rem;margin-bottom:12px;">Waiting for players...</div>
+          <button class="pill-btn pill-btn-roll" id="lobbyStartBtn" style="width:100%;display:none;">🎲 START GAME</button>
+          <button class="pill-btn pill-btn-new"  id="lobbyBackBtn"  style="width:100%;margin-top:8px;">← Back</button>
+        </div>
+
+        <div id="lobbyError" style="display:none;color:var(--danger);text-align:center;padding:10px;font-size:0.9rem;"></div>
+      </div>
+
+      <!-- ══ GAME SCREEN ══ -->
+      <div id="gameScreen" style="display:none;">
+
+        <!-- Player token strip -->
+        <div class="players-strip" id="playersStrip"></div>
+
+        <!-- Hidden pot bar (kept for JS compatibility) -->
+        <div class="pot-bar">
+          <div class="pot-amount" id="potAmount" style="display:none">0</div>
+          <div id="roundInfo" style="display:none">Round 1</div>
+          <div id="callInfo" style="display:none"></div>
+        </div>
+
+        <!-- Opponent cards -->
+        <div class="opponents-grid" id="opponentsGrid"></div>
+
+        <!-- Round results inline bar -->
+        <div id="resultsBar">
+          <div class="results-bar-title">🏆 ROUND RESULTS 🏆</div>
+          <div class="results-bar-scores" id="resultsBarScores"></div>
+          <div class="results-bar-winner" id="resultsBarWinner"></div>
+        </div>
+
+        <!-- Active player board -->
+        <div class="active-board" id="activeBoard">
+
+          <div class="board-header">
+            <div class="board-title-group">
+              <span style="font-size:1.1rem;">🎲</span>
+              <div class="board-player-name" id="activeName">YOU</div>
+            </div>
+            <div class="board-right-info">
+              <div class="board-tokens-tag">
+                <span>🪙</span>
+                <span>TOKENS: <strong id="activeTokensVal">500</strong></span>
+              </div>
+              <div class="board-ante-tag">
+                <span>🎲</span>
+                <span id="anteRollTag">ANTE: 50 | ROLL COST: 10</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Roll status pills -->
+          <div class="roll-status-bar">
+            <span class="pill" id="rollCounter">rolls: 0/6</span>
+            <span class="pill" id="rollSavePill">(perfect save!)</span>
+            <span class="pill" id="rollCostPill">Cost 10</span>
+            <span class="pill hint" id="lockHint" style="display:none;">⬆ Lock a die before rolling!</span>
+          </div>
+
+          <!-- Qualification hand zone -->
+          <div class="hand-zone">
+            <div class="zone-label">
+              <span class="zone-icon">🔑</span>
+              QUALIFICATION HAND (must lock a 1 AND a 4)
+            </div>
+            <div class="dice-row" id="qualifyRow">
+              <span class="zone-hint">⚡ Lock a 1 and a 4 (any number per roll)</span>
+            </div>
+          </div>
+
+          <!-- Scoring hand zone -->
+          <div class="hand-zone">
+            <div class="zone-label">
+              <span class="zone-icon">🎯</span>
+              SCORING HAND (max 4 dice - sum = final score)
+            </div>
+            <div class="dice-row" id="scoringRow">
+              <span class="zone-hint-dim">🎲 Lock up to 4 scoring dice here</span>
+            </div>
+          </div>
+
+          <!-- Current roll zone -->
+          <div class="hand-zone">
+            <div class="zone-label" id="rollZoneLabel">
+              <span class="zone-icon">🎲</span>
+              CURRENT ROLL (rolls: 0/6) | Cost: 10
+            </div>
+            <div class="dice-row" id="rollRow">
+              <span class="zone-hint">⚡ Press ROLL (cost 10)</span>
+            </div>
+            <div id="lockHintLine" style="display:none; margin-top:6px; font-size:0.75rem; color:#06d6a0; text-align:center;">
+              ✅ Select any number of dice (minimum 1) then press LOCK
+            </div>
+          </div>
+
+          <!-- Mid-roll betting strip -->
+          <div id="midRollBetting">
+            <div class="mid-bet-title">🪙 BET BEFORE NEXT ROLL</div>
+            <div class="mid-bet-row">
+              <button class="step-btn" id="midBetMinus">−</button>
+              <div class="bet-display" id="midBetDisplay">10</div>
+              <button class="step-btn" id="midBetPlus">+</button>
+              <span style="font-size:0.72rem;color:var(--muted);" id="midCallInfo"></span>
+            </div>
+            <div class="mid-bet-actions">
+              <button class="btn-check" id="midCheckBtn">CHECK</button>
+              <button class="btn-call"  id="midCallBtn">CALL</button>
+              <button class="btn-raise" id="midRaiseBtn">RAISE</button>
+              <button class="btn-fold"  id="midFoldBtn">FOLD</button>
+            </div>
+          </div>
+
+          <!-- Main action buttons -->
+          <div class="action-btn-row">
+            <button class="pill-btn pill-btn-roll" id="rollBtn">🎲 ROLL DICE (10)</button>
+            <button class="pill-btn pill-btn-lock" id="lockBtn" disabled>🔒 LOCK SELECTED DICE</button>
+            <button class="pill-btn pill-btn-end"  id="endTurnBtn">🏆 END ROUND &amp; COMPARE</button>
+          </div>
+
+          <div class="msg-box" id="msgBox">Waiting for game to start...</div>
+        </div><!-- /active-board -->
+
+        <!-- Between-turns betting panel -->
+        <div id="bettingPanel">
+          <div class="betting-title">🪙 BETTING — <span id="bettingPlayerName"></span></div>
+          <div class="bet-controls">
+            <button class="step-btn" id="betMinus">−</button>
+            <div class="bet-amount-display" id="betDisplay">10</div>
+            <button class="step-btn" id="betPlus">+</button>
+          </div>
+          <div class="bet-preset-row" id="betPresets"></div>
+          <div class="betting-actions">
+            <button class="btn-check" id="checkBtn">CHECK</button>
+            <button class="btn-call"  id="callBtn">CALL</button>
+            <button class="btn-raise" id="raiseBtn">RAISE</button>
+            <button class="btn-fold"  id="foldBtn">FOLD</button>
+          </div>
+        </div>
+
+      </div><!-- /gameScreen -->
+    </div><!-- /game-main -->
+
+    <div class="ad-slot ad-slot-side">📢 Ad</div>
+  </div><!-- /game-layout -->
+
+  <div class="ad-slot ad-slot-bottom">📢 Advertisement</div>
+</div><!-- /app -->
+
+<!-- Results Overlay (full-screen, for game over / next round) -->
+<div id="resultsOverlay">
+  <div class="results-card">
+    <div class="results-title" id="resultsTitle">ROUND RESULTS</div>
+    <div id="resultsBody"></div>
+    <button class="next-round-btn" id="nextRoundBtn">▶ NEXT ROUND</button>
+  </div>
+</div>
+
+<script src="js/multiplayer.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
