@@ -7,14 +7,15 @@
 // ══════════════════════════════════════════
 
 let mp = {
-  ws:         null,
-  myId:       null,
-  roomCode:   null,
-  isHost:     false,
-  serverUrl:  'ws://74.208.242.39',
-  myName:     'Player',
-  gameState:  null,   // last snapshot from server
-  connected:  false,
+  ws:           null,
+  myId:         null,
+  roomCode:     null,
+  isHost:       false,
+  serverUrl:    'ws://74.208.242.39',
+  myName:       'Player',
+  gameState:    null,
+  connected:    false,
+  connecting:   false,   // guard against rapid clicks
 };
 
 // ── Screen helpers ────────────────────────────────────────────────────────────
@@ -40,6 +41,7 @@ document.getElementById('lobbyJoinBtn').addEventListener('click', () => {
 });
 
 document.getElementById('lobbyCreateBtn').addEventListener('click', () => {
+  if (mp.connecting) return;
   mp.myName    = document.getElementById('lobbyName').value.trim() || 'Player';
   mp.serverUrl = document.getElementById('lobbyServer').value.trim() || 'ws://74.208.242.39';
   connectWS(() => {
@@ -48,6 +50,7 @@ document.getElementById('lobbyCreateBtn').addEventListener('click', () => {
 });
 
 document.getElementById('lobbyJoinConfirmBtn').addEventListener('click', () => {
+  if (mp.connecting) return;
   mp.myName    = document.getElementById('lobbyName').value.trim() || 'Player';
   mp.serverUrl = document.getElementById('lobbyServer').value.trim() || 'ws://74.208.242.39';
   const code   = document.getElementById('lobbyCode').value.trim().toUpperCase();
@@ -69,32 +72,67 @@ document.getElementById('lobbyBackBtn').addEventListener('click', () => {
 });
 
 // ── WebSocket connection ─────────────────────────────────────────────────────
+function setLobbyButtons(disabled) {
+  ['lobbyCreateBtn','lobbyJoinConfirmBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = disabled;
+  });
+}
+
 function connectWS(onOpen) {
-  if (mp.ws) mp.ws.close();
+  if (mp.connecting) return;
+  mp.connecting = true;
   lobbyError('');
-  try {
-    mp.ws = new WebSocket(mp.serverUrl);
-  } catch(e) {
-    lobbyError('Invalid server address'); return;
+  setLobbyButtons(true);
+
+  // Kill any existing socket cleanly without triggering its onclose
+  if (mp.ws) {
+    mp.ws.onclose = null;
+    mp.ws.onerror = null;
+    mp.ws.close();
+    mp.ws = null;
   }
 
-  mp.ws.onopen = () => {
-    mp.connected = true;
+  let socket;
+  try {
+    socket = new WebSocket(mp.serverUrl);
+  } catch(e) {
+    mp.connecting = false;
+    setLobbyButtons(false);
+    lobbyError('Invalid server address');
+    return;
+  }
+
+  mp.ws = socket;
+
+  socket.onopen = () => {
+    if (mp.ws !== socket) return; // superseded
+    mp.connected  = true;
+    mp.connecting = false;
+    setLobbyButtons(false);
     onOpen();
   };
 
-  mp.ws.onclose = () => {
-    mp.connected = false;
-    if (document.getElementById('gameScreen').style.display !== 'none') {
+  socket.onclose = () => {
+    if (mp.ws !== socket) return;
+    mp.connected  = false;
+    mp.connecting = false;
+    setLobbyButtons(false);
+    const game = document.getElementById('gameScreen');
+    if (game && game.style.display !== 'none') {
       showMsg('Connection lost — game ended.', 'error');
     }
   };
 
-  mp.ws.onerror = () => {
+  socket.onerror = () => {
+    if (mp.ws !== socket) return;
+    mp.connecting = false;
+    setLobbyButtons(false);
     lobbyError('Cannot connect to server. Check the address and try again.');
+    mp.ws = null;
   };
 
-  mp.ws.onmessage = evt => {
+  socket.onmessage = evt => {
     let msg;
     try { msg = JSON.parse(evt.data); } catch { return; }
     handleServerMsg(msg);
@@ -102,10 +140,17 @@ function connectWS(onOpen) {
 }
 
 function disconnectWS() {
-  if (mp.ws) { mp.ws.close(); mp.ws = null; }
-  mp.connected = false;
-  mp.myId = null;
-  mp.roomCode = null;
+  if (mp.ws) {
+    mp.ws.onclose = null;
+    mp.ws.onerror = null;
+    mp.ws.close();
+    mp.ws = null;
+  }
+  mp.connected  = false;
+  mp.connecting = false;
+  mp.myId       = null;
+  mp.roomCode   = null;
+  setLobbyButtons(false);
 }
 
 // ── Server message handler ───────────────────────────────────────────────────
