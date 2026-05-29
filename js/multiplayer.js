@@ -11,7 +11,7 @@ let mp = {
   myId:         null,
   roomCode:     null,
   isHost:       false,
-  serverUrl:    'ws://74.208.242.39',
+  serverUrl:    'ws://pignusdice.com',
   myName:       'Player',
   gameState:    null,
   connected:    false,
@@ -43,7 +43,7 @@ document.getElementById('lobbyJoinBtn').addEventListener('click', () => {
 document.getElementById('lobbyCreateBtn').addEventListener('click', () => {
   if (mp.connecting) return;
   mp.myName    = document.getElementById('lobbyName').value.trim() || 'Player';
-  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || 'ws://74.208.242.39';
+  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || 'ws://pignusdice.com';
   connectWS(() => {
     mp.ws.send(JSON.stringify({ type: 'create_room', name: mp.myName, startTokens: 500 }));
   });
@@ -52,7 +52,7 @@ document.getElementById('lobbyCreateBtn').addEventListener('click', () => {
 document.getElementById('lobbyJoinConfirmBtn').addEventListener('click', () => {
   if (mp.connecting) return;
   mp.myName    = document.getElementById('lobbyName').value.trim() || 'Player';
-  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || 'ws://74.208.242.39';
+  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || 'ws://pignusdice.com';
   const code   = document.getElementById('lobbyCode').value.trim().toUpperCase();
   if (!code) { lobbyError('Enter a room code'); return; }
   connectWS(() => {
