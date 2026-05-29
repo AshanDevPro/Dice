@@ -95,11 +95,12 @@ body::before {
 
 /* ═══ ONLINE LOBBY ═══ */
 #lobbyScreen {
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: #22203a;
+  border: 1px solid #4a3f6a;
   border-radius: 18px;
   padding: 24px;
   margin: 8px 0;
+  box-shadow: 0 0 40px rgba(100,60,180,0.15);
 }
 .lobby-row {
   display: flex;
