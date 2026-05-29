@@ -95,12 +95,13 @@ body::before {
 
 /* ═══ ONLINE LOBBY ═══ */
 #lobbyScreen {
-  background: #22203a;
-  border: 1px solid #4a3f6a;
+  background: #1e1830;
+  border: 2px solid #e63e6d;
   border-radius: 18px;
   padding: 24px;
   margin: 8px 0;
-  box-shadow: 0 0 40px rgba(100,60,180,0.15);
+  box-shadow: 0 0 32px rgba(230,62,109,0.25), 0 4px 24px rgba(0,0,0,0.5);
+  min-height: 200px;
 }
 .lobby-row {
   display: flex;
