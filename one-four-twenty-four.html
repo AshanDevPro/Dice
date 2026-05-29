@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>1•4•24 — Multiplayer Dice Game</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0d0d14;
+    --surface: #15151f;
+    --card: #1c1c2a;
+    --border: #2e2e42;
+    --accent: #e63e6d;
+    --accent2: #f59e1b;
+    --gold: #ffd166;
+    --teal: #06d6a0;
+    --text: #e8e0f0;
+    --muted: #7a7090;
+    --danger: #ff4d4d;
+    --win: #06d6a0;
+  }
+
+  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    min-height: 100vh;
+    font-family: 'Barlow Condensed', sans-serif;
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(230,62,109,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 80% 90%, rgba(6,214,160,0.06) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 16px; }
+
+  /* ── HEADER ── */
+  .header { text-align: center; padding: 24px 0 16px; }
+  .game-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.8rem, 8vw, 5rem);
+    letter-spacing: 0.12em;
+    background: linear-gradient(135deg, #e63e6d, #f59e1b, #e63e6d);
+    background-size: 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s ease infinite;
+  }
+  @keyframes shimmer { 0%,100% { background-position: 0% } 50% { background-position: 100% } }
+  .subtitle { font-size: 0.85rem; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; margin-top: 4px; }
+
+  /* ── SETUP ── */
+  #setupScreen { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 32px; margin: 20px 0; }
+  .setup-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 0.1em; color: var(--accent2); margin-bottom: 20px; text-align: center; }
+  .player-setup-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 10px 14px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border); }
+  .player-setup-row label { color: var(--muted); font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; min-width: 60px; }
+  .player-setup-row input[type=text] { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; outline: none; transition: border-color 0.2s; }
+  .player-setup-row input[type=text]:focus { border-color: var(--accent); }
+  .type-toggle { display: flex; gap: 4px; }
+  .type-btn { padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-family: 'Barlow Condensed', sans-serif; font-size: 0.85rem; cursor: pointer; transition: all 0.15s; font-weight: 600; }
+  .type-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .add-player-btn { width: 100%; padding: 10px; margin-top: 8px; background: transparent; border: 1px dashed var(--border); border-radius: 10px; color: var(--muted); font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; cursor: pointer; transition: all 0.15s; }
+  .add-player-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .remove-btn { background: transparent; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: color 0.15s; box-shadow: none; }
+  .remove-btn:hover { color: var(--danger); }
+  .start-btn { width: 100%; margin-top: 20px; padding: 16px; background: linear-gradient(135deg, var(--accent), #c0225a); border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 0.12em; color: white; cursor: pointer; transition: all 0.15s; box-shadow: 0 4px 0 #7a1535; }
+  .start-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #7a1535; }
+  .token-setup { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 12px 16px; background: var(--surface); border-radius: 12px; }
+  .token-setup label { color: var(--muted); font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  .token-setup input[type=range] { flex: 1; accent-color: var(--accent2); }
+  .token-setup span { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; color: var(--gold); min-width: 60px; }
+
+  /* ── PLAYER TABS ── */
+  #gameScreen { display: none; }
+  .players-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 16px; scrollbar-width: none; }
+  .players-strip::-webkit-scrollbar { display: none; }
+  .player-tab { flex-shrink: 0; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 8px 14px; min-width: 120px; text-align: center; transition: all 0.2s; position: relative; }
+  .player-tab.active-turn { border-color: var(--accent); background: rgba(230,62,109,0.1); box-shadow: 0 0 12px rgba(230,62,109,0.2); }
+  .player-tab.folded { opacity: 0.45; }
+  .player-tab.eliminated { opacity: 0.3; }
+  .tab-name { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.06em; color: var(--text); }
+  .tab-tokens { font-size: 0.75rem; color: var(--gold); font-weight: 700; }
+  .tab-score { font-size: 0.7rem; color: var(--muted); }
+  .turn-arrow { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); color: var(--accent); font-size: 1rem; display: none; }
+  .player-tab.active-turn .turn-arrow { display: block; }
+
+  /* ── POT BAR ── */
+  .pot-bar { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px 18px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+  .pot-label { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.12em; color: var(--muted); }
+  .pot-amount { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--gold); letter-spacing: 0.06em; }
+  .round-info { font-size: 0.8rem; color: var(--muted); letter-spacing: 0.08em; }
+  .call-amount { font-size: 0.85rem; color: var(--accent2); font-weight: 700; }
+
+  /* ── ACTIVE BOARD ── */
+  .active-board { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 18px; margin-bottom: 16px; }
+  .board-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+  .board-player-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: 0.1em; color: var(--accent); }
+  .board-tokens { background: rgba(255,209,102,0.1); border: 1px solid rgba(255,209,102,0.3); border-radius: 20px; padding: 5px 14px; font-family: 'Bebas Neue', sans-serif; font-size: 1rem; color: var(--gold); letter-spacing: 0.08em; }
+  .hand-zone { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 10px; }
+  .zone-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .zone-badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; }
+  .badge-qualify { background: rgba(6,214,160,0.15); color: var(--teal); border: 1px solid rgba(6,214,160,0.3); }
+  .badge-scoring { background: rgba(245,158,27,0.15); color: var(--accent2); border: 1px solid rgba(245,158,27,0.3); }
+  .badge-roll { background: rgba(230,62,109,0.15); color: var(--accent); border: 1px solid rgba(230,62,109,0.3); }
+
+  /* ── LOCK HINT BANNER ── */
+  .lock-hint-banner {
+    background: rgba(230,62,109,0.12);
+    border: 1px solid rgba(230,62,109,0.4);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+    text-align: center;
+    animation: hintPulse 1.2s ease-in-out infinite alternate;
+  }
+  @keyframes hintPulse {
+    from { border-color: rgba(230,62,109,0.3); background: rgba(230,62,109,0.08); }
+    to   { border-color: rgba(230,62,109,0.7); background: rgba(230,62,109,0.18); }
+  }
+
+  .dice-row { display: flex; flex-wrap: wrap; gap: 10px; min-height: 72px; align-items: center; }
+  .empty-hint { color: var(--muted); font-size: 0.85rem; font-style: italic; }
+
+  /* ── DICE ── */
+  .die { width: 64px; height: 64px; background-size: contain; background-repeat: no-repeat; background-position: center; cursor: pointer; transition: transform 0.15s, filter 0.15s; filter: drop-shadow(0 3px 5px rgba(0,0,0,0.5)); flex-shrink: 0; }
+  .die.selectable { cursor: pointer; }
+  .die.selectable:hover { transform: scale(1.08) translateY(-2px); filter: drop-shadow(0 6px 8px rgba(0,0,0,0.5)) brightness(1.1); }
+
+  /* FIX: Much more visible selected state with pulsing glow */
+  .die.selected {
+    transform: translateY(-6px) scale(1.1);
+    animation: selectedPulse 0.8s ease-in-out infinite alternate;
+    cursor: pointer;
+  }
+  @keyframes selectedPulse {
+    from {
+      filter: drop-shadow(0 0 8px #06d6a0) drop-shadow(0 0 14px rgba(6,214,160,0.5)) brightness(1.2);
+    }
+    to {
+      filter: drop-shadow(0 0 16px #06d6a0) drop-shadow(0 0 28px rgba(6,214,160,0.8)) drop-shadow(0 0 40px rgba(6,214,160,0.4)) brightness(1.35);
+    }
+  }
+
+  .die.locked { cursor: default; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); }
+  .die.rolling { animation: diceRoll 0.4s ease; }
+  @keyframes diceRoll {
+    0% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(-15deg) scale(0.9); }
+    50% { transform: rotate(10deg) scale(1.1); }
+    75% { transform: rotate(-5deg) scale(0.95); }
+    100% { transform: rotate(0deg) scale(1); }
+  }
+
+  .small-die { width: 36px; height: 36px; background-size: contain; background-repeat: no-repeat; background-position: center; flex-shrink: 0; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+
+  /* ── BUTTONS ── */
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+  .btn { padding: 10px 22px; border-radius: 10px; border: none; font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 0.1em; cursor: pointer; transition: all 0.1s; box-shadow: 0 4px 0 rgba(0,0,0,0.4); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.4); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-roll { background: linear-gradient(135deg, var(--accent), #c0225a); color: white; box-shadow: 0 4px 0 #7a1535; }
+  .btn-lock { background: linear-gradient(135deg, #4a3a7e, #2e2558); color: #d0b8ff; box-shadow: 0 4px 0 #1a1035; border: 1px solid #5a4a8e; }
+  .btn-end { background: linear-gradient(135deg, #1a6b4a, #0d4a32); color: #06d6a0; box-shadow: 0 4px 0 #0a2a1a; border: 1px solid #0a5a3a; }
+  .btn-neutral { background: var(--surface); color: var(--muted); border: 1px solid var(--border); box-shadow: 0 4px 0 rgba(0,0,0,0.3); }
+
+  /* ── BETTING PANEL ── */
+  #bettingPanel { background: var(--card); border: 1px solid var(--accent2); border-radius: 16px; padding: 16px; margin-bottom: 16px; display: none; animation: slideIn 0.2s ease; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  .betting-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; letter-spacing: 0.1em; color: var(--accent2); margin-bottom: 12px; }
+  .bet-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .bet-amount-display { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--gold); min-width: 80px; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px 14px; }
+  .bet-stepper { display: flex; gap: 6px; }
+  .step-btn { width: 36px; height: 36px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 1.2rem; cursor: pointer; transition: all 0.1s; display: flex; align-items: center; justify-content: center; box-shadow: none; padding: 0; }
+  .step-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .bet-preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .preset-btn { padding: 5px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-family: 'Barlow Condensed', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.15s; box-shadow: none; }
+  .preset-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .betting-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .btn-check { background: var(--surface); color: var(--teal); border: 1px solid var(--teal); box-shadow: 0 3px 0 rgba(0,0,0,0.3); }
+  .btn-call { background: linear-gradient(135deg, #1a5a7a, #0d3a52); color: #5cc8f5; border: 1px solid #1a5a7a; box-shadow: 0 3px 0 rgba(0,0,0,0.3); }
+  .btn-raise { background: linear-gradient(135deg, #7a5a00, #5a3e00); color: var(--gold); border: 1px solid #a07000; box-shadow: 0 3px 0 rgba(0,0,0,0.3); }
+  .btn-fold { background: var(--surface); color: var(--danger); border: 1px solid var(--danger); box-shadow: 0 3px 0 rgba(0,0,0,0.3); }
+
+  /* ── OPPONENT CARDS ── */
+  .opponents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .opp-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px; transition: all 0.2s; }
+  .opp-card.active-turn { border-color: var(--accent); box-shadow: 0 0 10px rgba(230,62,109,0.2); }
+  .opp-card.folded { opacity: 0.35; }
+  .opp-card.winner { border-color: var(--gold); box-shadow: 0 0 16px rgba(255,209,102,0.3); background: rgba(255,209,102,0.05); }
+  .opp-name { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .opp-meta { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--muted); margin-bottom: 8px; }
+  .opp-dice-row { display: flex; gap: 5px; flex-wrap: wrap; }
+  .opp-qualify-check { font-size: 0.7rem; margin-top: 6px; }
+
+  /* ── MESSAGE BOX ── */
+  .msg-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; font-size: 0.9rem; color: var(--text); margin-top: 10px; min-height: 40px; line-height: 1.5; transition: all 0.2s; }
+  .msg-box.error { border-color: var(--danger); color: #ff8080; }
+  .msg-box.success { border-color: var(--teal); color: #80f0c8; }
+
+  /* ── RESULTS OVERLAY ── */
+  #resultsOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .results-card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 28px; max-width: 480px; width: 100%; animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes popIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .results-title { font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; letter-spacing: 0.12em; text-align: center; margin-bottom: 16px; }
+  .results-title.player-wins { color: var(--gold); }
+  .results-title.ai-wins { color: var(--muted); }
+  .score-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; background: var(--surface); }
+  .score-row.winner-row { background: rgba(255,209,102,0.1); border: 1px solid rgba(255,209,102,0.3); }
+  .score-name { font-weight: 700; font-size: 1rem; }
+  .score-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--gold); }
+  .score-unqualified { font-size: 0.75rem; color: var(--danger); }
+  .token-change { font-size: 0.8rem; font-weight: 700; }
+  .token-change.plus { color: var(--teal); }
+  .token-change.minus { color: var(--danger); }
+  .next-round-btn { width: 100%; margin-top: 16px; padding: 14px; background: linear-gradient(135deg, var(--accent), #c0225a); border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 0.12em; color: white; cursor: pointer; transition: all 0.15s; box-shadow: 0 4px 0 #7a1535; }
+  .next-round-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #7a1535; }
+
+  /* ── ROLL INFO ── */
+  .roll-info { display: flex; gap: 8px; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; flex-wrap: wrap; }
+  .roll-info span { background: var(--surface); border-radius: 6px; padding: 2px 8px; border: 1px solid var(--border); }
+
+  /* ── HANDOFF SCREEN ── */
+  #handoffOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: none; align-items: center; justify-content: center; z-index: 200; flex-direction: column; gap: 16px; padding: 20px; text-align: center; }
+  .handoff-name { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2rem, 8vw, 4rem); letter-spacing: 0.12em; color: var(--accent); }
+  .handoff-sub { color: var(--muted); font-size: 1rem; }
+  .handoff-btn { padding: 14px 40px; background: linear-gradient(135deg, var(--accent), #c0225a); border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 0.1em; color: white; cursor: pointer; box-shadow: 0 4px 0 #7a1535; transition: all 0.1s; margin-top: 10px; }
+  .handoff-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #7a1535; }
+
+  @media (max-width: 600px) {
+    .die { width: 52px; height: 52px; }
+    .small-die { width: 30px; height: 30px; }
+    .btn { padding: 9px 16px; font-size: 1rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="game-title">1 • 4 • 24</div>
+    <div class="subtitle">Lock a 1 &amp; a 4 — Score highest with 4 dice</div>
+  </div>
+
+  <!-- SETUP -->
+  <div id="setupScreen">
+    <div class="setup-title">🎲 GAME SETUP</div>
+    <div class="token-setup">
+      <label>Starting Tokens</label>
+      <input type="range" id="startTokens" min="200" max="2000" step="100" value="500">
+      <span id="tokenDisplay">500</span>
+    </div>
+    <div id="playerList"></div>
+    <button class="add-player-btn" id="addPlayerBtn">+ Add Player</button>
+    <button class="start-btn" id="startGameBtn">🎲 START GAME</button>
+  </div>
+
+  <!-- GAME -->
+  <div id="gameScreen">
+    <div class="players-strip" id="playersStrip"></div>
+
+    <div class="pot-bar">
+      <div>
+        <div class="pot-label">POT</div>
+        <div class="pot-amount" id="potAmount">0</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="round-info" id="roundInfo">Round 1</div>
+        <div class="call-amount" id="callInfo"></div>
+      </div>
+    </div>
+
+    <div class="opponents-grid" id="opponentsGrid"></div>
+
+    <div class="active-board" id="activeBoard">
+      <div class="board-header">
+        <div class="board-player-name" id="activeName">—</div>
+        <div class="board-tokens" id="activeTokens">💰 0</div>
+      </div>
+
+      <div class="roll-info" id="rollInfo">
+        <span id="rollCounter">Rolls: 0/6</span>
+        <span id="rollCostTag">Cost per roll: 10</span>
+      </div>
+
+      <!-- FIX: Lock reminder banner shown when player must lock before rolling -->
+      <div class="lock-hint-banner" id="lockHintBanner" style="display:none;">
+        🔒 SELECT A DIE BELOW, THEN PRESS LOCK — before you can roll again
+      </div>
+
+      <div class="hand-zone">
+        <div class="zone-label"><span class="zone-badge badge-qualify">QUALIFY</span> Must lock a 1 AND a 4</div>
+        <div class="dice-row" id="qualifyRow"></div>
+      </div>
+
+      <div class="hand-zone">
+        <div class="zone-label"><span class="zone-badge badge-scoring">SCORE</span> Up to 4 dice — highest sum wins</div>
+        <div class="dice-row" id="scoringRow"></div>
+      </div>
+
+      <div class="hand-zone" id="rollZone">
+        <div class="zone-label"><span class="zone-badge badge-roll">ROLL</span> Select dice to lock, then press LOCK</div>
+        <div class="dice-row" id="rollRow"></div>
+      </div>
+
+      <!-- Mid-roll inline betting -->
+      <div id="midRollBetting" style="display:none; background:rgba(245,158,27,0.08); border:1px solid var(--accent2); border-radius:12px; padding:12px; margin-top:10px;">
+        <div style="font-family:'Bebas Neue',sans-serif; font-size:1rem; color:var(--accent2); margin-bottom:8px; letter-spacing:0.1em;">🪙 BET BEFORE NEXT ROLL</div>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button class="step-btn" id="midBetMinus">−</button>
+          <div class="bet-amount-display" id="midBetDisplay" style="font-size:1.4rem; padding:4px 12px; min-width:60px;">10</div>
+          <button class="step-btn" id="midBetPlus">+</button>
+          <div style="font-size:0.75rem; color:var(--muted)" id="midCallInfo"></div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+          <button class="btn btn-call" id="midCallBtn" style="padding:8px 16px; font-size:0.95rem;">CALL</button>
+          <button class="btn btn-raise" id="midRaiseBtn" style="padding:8px 16px; font-size:0.95rem;">RAISE</button>
+          <button class="btn btn-fold" id="midFoldBtn" style="padding:8px 16px; font-size:0.95rem;">FOLD</button>
+          <button class="btn btn-check" id="midCheckBtn" style="padding:8px 16px; font-size:0.95rem;">CHECK</button>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-roll" id="rollBtn">🎲 ROLL (10)</button>
+        <button class="btn btn-lock" id="lockBtn" disabled>🔒 LOCK SELECTED</button>
+        <button class="btn btn-end" id="endTurnBtn">✅ END TURN</button>
+      </div>
+      <div class="msg-box" id="msgBox">Welcome! Press Roll to start your turn.</div>
+    </div>
+
+    <!-- Betting panel -->
+    <div id="bettingPanel">
+      <div class="betting-title">🪙 BETTING — <span id="bettingPlayerName"></span></div>
+      <div class="bet-controls">
+        <div class="bet-stepper"><button class="step-btn" id="betMinus">−</button></div>
+        <div class="bet-amount-display" id="betDisplay">10</div>
+        <div class="bet-stepper"><button class="step-btn" id="betPlus">+</button></div>
+      </div>
+      <div class="bet-preset-row" id="betPresets"></div>
+      <div class="betting-actions">
+        <button class="btn btn-check" id="checkBtn">CHECK / SKIP</button>
+        <button class="btn btn-call" id="callBtn">CALL</button>
+        <button class="btn btn-raise" id="raiseBtn">RAISE</button>
+        <button class="btn btn-fold" id="foldBtn">FOLD</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Handoff Screen -->
+<div id="handoffOverlay">
+  <div class="handoff-sub">PASS THE DEVICE TO</div>
+  <div class="handoff-name" id="handoffName">—</div>
+  <div class="handoff-sub" id="handoffSub">Your turn is starting</div>
+  <button class="handoff-btn" id="handoffReadyBtn">I'M READY →</button>
+</div>
+
+<!-- Results Overlay -->
+<div id="resultsOverlay">
+  <div class="results-card">
+    <div class="results-title" id="resultsTitle">ROUND RESULTS</div>
+    <div id="resultsBody"></div>
+    <button class="next-round-btn" id="nextRoundBtn">▶ NEXT ROUND</button>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+//  DICE SVG GENERATOR
+// ─────────────────────────────────────────
+function getDiceSVG(value, selected = false, locked = false) {
+  const dotPos = {
+    1: [[50,50]],
+    2: [[28,28],[72,72]],
+    3: [[28,28],[50,50],[72,72]],
+    4: [[28,28],[28,72],[72,28],[72,72]],
+    5: [[28,28],[28,72],[50,50],[72,28],[72,72]],
+    6: [[28,25],[28,50],[28,75],[72,25],[72,50],[72,75]]
+  };
+  const dots = dotPos[value] || [];
+  const stroke = selected ? '#06d6a0' : locked ? '#e63e6d' : '#3a3a5a';
+  const fill   = selected ? '#0a2e20' : locked ? '#1e0f1a' : '#14141e';
+  const dotColor = selected ? '#06d6a0' : locked ? '#ff8ab0' : '#c0b8d8';
+  const sw = selected ? 4 : 2;
+  const svg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" rx="18" ry="18" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
+    ${selected ? `<rect width="100" height="100" rx="18" ry="18" fill="none" stroke="#06d6a0" stroke-width="2" opacity="0.4"/>` : ''}
+    ${dots.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="8" fill="${dotColor}"/>`).join('')}
+  </svg>`;
+  return "data:image/svg+xml," + encodeURIComponent(svg);
+}
+
+function setDieImg(el, value, selected=false, locked=false) {
+  if (!value) {
+    el.style.backgroundImage = `url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100' height='100' rx='18' ry='18' fill='%2318181f' stroke='%232e2e42' stroke-width='2'/%3E%3Ctext x='50' y='68' font-size='38' text-anchor='middle' fill='%23444' font-family='monospace'%3E?%3C/text%3E%3C/svg%3E")`;
+  } else {
+    el.style.backgroundImage = `url('${getDiceSVG(value, selected, locked)}')`;
+  }
+}
+
+// ─────────────────────────────────────────
+//  CONSTANTS & STATE
+// ─────────────────────────────────────────
+const ANTE      = 50;
+const ROLL_COST = 10;
+const MAX_ROLLS = 6;
+const COLORS    = ['#e63e6d','#06d6a0','#f59e1b','#5cc8f5','#b06dff','#ff9a3c'];
+
+let state = {
+  players: [],
+  pot: 0,
+  round: 1,
+  turnIndex: 0,
+  activePlayers: [],
+  roundPlayers: [],
+  phase: 'bet',
+  betRound: 0,
+  currentBet: 0,
+  bettingQueue: [],
+  startTokens: 500,
+  gameOver: false
+};
+
+// ─────────────────────────────────────────
+//  SETUP
+// ─────────────────────────────────────────
+const playerColors = COLORS;
+let setupPlayers = [
+  { name: 'Player 1', type: 'human' },
+  { name: 'Red Rex',  type: 'ai' },
+  { name: 'Blue Jay', type: 'ai' },
+];
+
+const tokenSlider  = document.getElementById('startTokens');
+const tokenDisplay = document.getElementById('tokenDisplay');
+tokenSlider.addEventListener('input', () => { tokenDisplay.textContent = tokenSlider.value; });
+
+function renderSetup() {
+  const list = document.getElementById('playerList');
+  list.innerHTML = '';
+  setupPlayers.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'player-setup-row';
+    row.innerHTML = `
+      <label style="color:${playerColors[i % playerColors.length]}">${i+1}.</label>
+      <input type="text" value="${p.name}" data-i="${i}" class="pname-input" maxlength="18">
+      <div class="type-toggle">
+        <button class="type-btn ${p.type==='human'?'active':''}" data-i="${i}" data-t="human">👤 Human</button>
+        <button class="type-btn ${p.type==='ai'?'active':''}" data-i="${i}" data-t="ai">🤖 AI</button>
+      </div>
+      ${setupPlayers.length > 2 ? `<button class="remove-btn" data-i="${i}">✕</button>` : ''}
+    `;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.pname-input').forEach(el => el.addEventListener('input', e => {
+    setupPlayers[e.target.dataset.i].name = e.target.value;
+  }));
+  list.querySelectorAll('.type-btn').forEach(el => el.addEventListener('click', e => {
+    setupPlayers[parseInt(e.target.dataset.i)].type = e.target.dataset.t;
+    renderSetup();
+  }));
+  list.querySelectorAll('.remove-btn').forEach(el => el.addEventListener('click', e => {
+    setupPlayers.splice(parseInt(e.target.dataset.i), 1);
+    renderSetup();
+  }));
+}
+
+document.getElementById('addPlayerBtn').addEventListener('click', () => {
+  if (setupPlayers.length >= 6) return;
+  setupPlayers.push({ name: `Player ${setupPlayers.length+1}`, type: 'human' });
+  renderSetup();
+});
+
+document.getElementById('startGameBtn').addEventListener('click', startGame);
+
+function startGame() {
+  state.startTokens = parseInt(tokenSlider.value);
+  state.players = setupPlayers.map((p, i) => ({
+    name: p.name,
+    type: p.type,
+    tokens: state.startTokens,
+    color: playerColors[i % playerColors.length],
+    qualifyHand: [], scoringHand: [], currentDice: [],
+    selectedIdx: new Set(), rollsUsed: 0, lastRollCount: 0,
+    finalScore: 0, folded: false, qualified: false,
+    roundBet: 0, active: true,
+    mustLockBeforeRoll: false   // FIX: track lock requirement
+  }));
+  state.activePlayers = state.players.map((_,i)=>i);
+  state.round  = 1;
+  state.pot    = 0;
+  state.gameOver = false;
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('gameScreen').style.display  = 'block';
+  startRound();
+}
+
+// ─────────────────────────────────────────
+//  ROUND MANAGEMENT
+// ─────────────────────────────────────────
+function startRound() {
+  state.activePlayers = state.players.map((_,i)=>i).filter(i => state.players[i].tokens > 0);
+  if (state.activePlayers.length < 2) { endGame(); return; }
+
+  state.roundPlayers = [...state.activePlayers];
+  state.pot = 0; state.currentBet = 0; state.betRound = 0;
+
+  state.players.forEach(p => {
+    p.qualifyHand = []; p.scoringHand = []; p.currentDice = [];
+    p.selectedIdx = new Set(); p.rollsUsed = 0; p.lastRollCount = 0;
+    p.finalScore = 0; p.folded = false; p.qualified = false; p.roundBet = 0;
+    p.mustLockBeforeRoll = false;   // FIX: reset each round
+  });
+
+  state.roundPlayers.forEach(i => {
+    const p = state.players[i];
+    const ante = Math.min(ANTE, p.tokens);
+    p.tokens -= ante; p.roundBet += ante; state.pot += ante;
+  });
+
+  state.turnIndex = 0;
+  document.getElementById('roundInfo').textContent = `Round ${state.round}`;
+  renderAll();
+  startRollPhase();
+}
+
+function startRollPhase() {
+  state.phase = 'roll'; state.turnIndex = 0;
+  hideBetting();
+  startNextPlayerTurn();
+}
+
+function startNextPlayerTurn() {
+  const nonFolded = state.roundPlayers.filter(i => !state.players[i].folded);
+  if (state.turnIndex >= nonFolded.length) { resolveRound(); return; }
+  const pi     = nonFolded[state.turnIndex];
+  const player = state.players[pi];
+  if (player.type === 'ai') {
+    renderAll();
+    setTimeout(() => doAITurn(pi), 600);
+  } else {
+    showHandoff(player.name, 'Your turn to roll!', () => {
+      renderAll();
+      setActivePIDX(pi);
+      showMsg(`Ante paid! Roll to play. You have ${MAX_ROLLS} rolls max.`);
+    });
+  }
+}
+
+let activePIDX = 0;
+function setActivePIDX(pi) {
+  activePIDX = pi;
+  renderActiveBoard();
+  renderPlayersStrip();
+}
+
+function advanceTurn() {
+  state.turnIndex++;
+  const nonFolded = state.roundPlayers.filter(i => !state.players[i].folded);
+  if (state.turnIndex >= nonFolded.length) { resolveRound(); return; }
+  const nextPi = nonFolded[state.turnIndex];
+  startBetBetweenTurns(nextPi);
+}
+
+function startBetBetweenTurns(nextPi) {
+  const nonFolded = state.roundPlayers.filter(i => !state.players[i].folded);
+  if (nonFolded.length < 2) { startNextPlayerTurn(); return; }
+  state.bettingQueue = [...nonFolded];
+  state.currentBet   = 0;
+  state.players.forEach(p => p.roundBet = 0);
+  serveBettingQueue(nextPi);
+}
+
+function serveBettingQueue(nextPi) {
+  if (state.bettingQueue.length === 0) { startNextPlayerTurn(); return; }
+  const pi     = state.bettingQueue.shift();
+  const player = state.players[pi];
+  if (player.folded || player.tokens <= 0) { serveBettingQueue(nextPi); return; }
+
+  if (player.type === 'ai') {
+    setTimeout(() => {
+      const callAmt = Math.max(0, state.currentBet - player.roundBet);
+      const r = Math.random();
+      if (r < 0.15 && callAmt > 0 && player.tokens < callAmt * 2) {
+        player.folded = true;
+      } else if (r < 0.35 && player.tokens > state.currentBet + 20) {
+        const raise = Math.min(player.tokens - callAmt, 20);
+        state.currentBet += raise;
+        player.tokens -= callAmt + raise; player.roundBet += callAmt + raise; state.pot += callAmt + raise;
+      } else {
+        const call = Math.min(callAmt, player.tokens);
+        player.tokens -= call; player.roundBet += call; state.pot += call;
+      }
+      renderAll();
+      serveBettingQueue(nextPi);
+    }, 400);
+  } else {
+    showHandoff(player.name, 'Betting round — your action', () => {
+      showBettingUI(pi, nextPi);
+    });
+  }
+}
+
+function showBettingUI(pi, nextPi) {
+  setActivePIDX(pi);
+  document.getElementById('bettingPanel').style.display = 'block';
+  document.getElementById('bettingPlayerName').textContent = state.players[pi].name;
+  document.getElementById('activeBoard').style.display = 'none';
+
+  const callAmt = Math.max(0, state.currentBet - state.players[pi].roundBet);
+  document.getElementById('callInfo').textContent = callAmt > 0 ? `To call: ${callAmt}` : 'Check available';
+
+  let betAmt = Math.max(10, callAmt);
+  document.getElementById('betDisplay').textContent = betAmt;
+
+  document.getElementById('betMinus').onclick = () => { betAmt = Math.max(10, Math.min(state.players[pi].tokens, betAmt-10)); document.getElementById('betDisplay').textContent = betAmt; };
+  document.getElementById('betPlus').onclick  = () => { betAmt = Math.max(10, Math.min(state.players[pi].tokens, betAmt+10)); document.getElementById('betDisplay').textContent = betAmt; };
+
+  const presetsEl = document.getElementById('betPresets');
+  presetsEl.innerHTML = '';
+  [10,25,50,100].forEach(v => {
+    if (v <= state.players[pi].tokens) {
+      const b = document.createElement('button');
+      b.className = 'preset-btn'; b.textContent = v;
+      b.onclick = () => { betAmt = v; document.getElementById('betDisplay').textContent = betAmt; };
+      presetsEl.appendChild(b);
+    }
+  });
+  const allInB = document.createElement('button');
+  allInB.className = 'preset-btn'; allInB.textContent = 'ALL IN';
+  allInB.onclick = () => { betAmt = state.players[pi].tokens; document.getElementById('betDisplay').textContent = betAmt; };
+  presetsEl.appendChild(allInB);
+
+  document.getElementById('checkBtn').onclick = () => {
+    if (callAmt > 0) { showMsg('Cannot check — there is a bet to call!', 'error'); return; }
+    hideBettingAndContinue(nextPi);
+  };
+  document.getElementById('callBtn').onclick = () => {
+    const call = Math.min(callAmt, state.players[pi].tokens);
+    state.players[pi].tokens -= call; state.players[pi].roundBet += call; state.pot += call;
+    hideBettingAndContinue(nextPi);
+  };
+  document.getElementById('raiseBtn').onclick = () => {
+    const pay = Math.min(callAmt + (betAmt - callAmt), state.players[pi].tokens);
+    state.players[pi].tokens -= pay; state.players[pi].roundBet += pay; state.pot += pay;
+    state.currentBet = state.players[pi].roundBet;
+    hideBettingAndContinue(nextPi);
+  };
+  document.getElementById('foldBtn').onclick = () => {
+    state.players[pi].folded = true;
+    hideBettingAndContinue(nextPi);
+  };
+}
+
+function hideBettingAndContinue(nextPi) {
+  hideBetting();
+  document.getElementById('activeBoard').style.display = '';
+  renderAll();
+  serveBettingQueue(nextPi);
+}
+
+function hideBetting() {
+  document.getElementById('bettingPanel').style.display = 'none';
+  document.getElementById('activeBoard').style.display  = '';
+}
+
+// ─────────────────────────────────────────
+//  HANDOFF SCREEN
+// ─────────────────────────────────────────
+function showHandoff(name, sub, onReady) {
+  const overlay = document.getElementById('handoffOverlay');
+  document.getElementById('handoffName').textContent = name;
+  document.getElementById('handoffSub').textContent  = sub;
+  overlay.style.display = 'flex';
+  document.getElementById('handoffReadyBtn').onclick = () => {
+    overlay.style.display = 'none';
+    onReady();
+  };
+}
+
+// ─────────────────────────────────────────
+//  ROLL / LOCK / END TURN HANDLERS
+// ─────────────────────────────────────────
+document.getElementById('rollBtn').addEventListener('click', () => {
+  const player = state.players[activePIDX];
+  if (!player || player.type === 'ai') return;
+  if (player.rollsUsed >= MAX_ROLLS) { showMsg('Max rolls reached! End your turn.', 'error'); return; }
+  if (player.tokens < ROLL_COST)     { showMsg('Not enough tokens for roll cost!', 'error'); return; }
+
+  // FIX: block re-roll if player hasn't locked a die since last roll
+  if (player.mustLockBeforeRoll) {
+    showMsg('You must lock at least one die before rolling again!', 'error');
+    return;
+  }
+
+  performRoll(activePIDX);
+  renderActiveBoard();
+});
+
+document.getElementById('lockBtn').addEventListener('click', () => {
+  if (lockSelected(activePIDX)) {
+    renderActiveBoard();
+    const player   = state.players[activePIDX];
+    const qualFull = player.qualifyHand.includes(1) && player.qualifyHand.includes(4);
+    const handFull = qualFull && player.scoringHand.length === 4;
+    const nonFolded = state.roundPlayers.filter(i => !state.players[i].folded);
+    if (!handFull && nonFolded.length > 1 && player.rollsUsed < MAX_ROLLS) {
+      showMidRollBetting(activePIDX);
+    }
+  }
+});
+
+document.getElementById('endTurnBtn').addEventListener('click', () => {
+  const player = state.players[activePIDX];
+  if (!player) return;
+  if (player.rollsUsed === 0) { showMsg('You must roll at least once!', 'error'); return; }
+  finalizePlayerScore(activePIDX);
+  advanceTurn();
+});
+
+function performRoll(pi) {
+  const player = state.players[pi];
+  const neededQual  = 2 - player.qualifyHand.length;
+  const neededScore = 4 - player.scoringHand.length;
+  const remaining   = player.currentDice.length;
+  const toRoll      = Math.max(0, (neededQual + neededScore) - remaining);
+  if (neededQual + neededScore <= 0) { showMsg('Hand is full! End your turn.'); return; }
+
+  player.tokens -= ROLL_COST;
+  state.pot     += ROLL_COST;
+  player.rollsUsed++;
+
+  const newDice = Array.from({length: toRoll}, () => Math.floor(Math.random()*6)+1);
+  player.currentDice  = [...player.currentDice, ...newDice];
+  player.lastRollCount = player.currentDice.length;
+  player.selectedIdx   = new Set();
+  player.mustLockBeforeRoll = true;   // FIX: require lock before next roll
+
+  updatePotDisplay();
+  showMsg(`Roll #${player.rollsUsed} — Select at least one die and press LOCK before rolling again.`);
+}
+
+function lockSelected(pi) {
+  const player = state.players[pi];
+  if (player.selectedIdx.size === 0) { showMsg('Select at least one die!', 'error'); return false; }
+
+  const indices = [...player.selectedIdx].sort((a,b)=>a-b);
+  const vals    = indices.map(i => player.currentDice[i]);
+
+  let missingOne  = !player.qualifyHand.includes(1);
+  let missingFour = !player.qualifyHand.includes(4);
+
+  for (const v of vals) {
+    const qualFull = player.qualifyHand.includes(1) && player.qualifyHand.includes(4);
+    if (!qualFull && v === 1 && missingOne)       { player.qualifyHand.push(1); missingOne  = false; }
+    else if (!qualFull && v === 4 && missingFour) { player.qualifyHand.push(4); missingFour = false; }
+    else if (player.scoringHand.length < 4)       { player.scoringHand.push(v); }
+  }
+  if (player.qualifyHand.length > 2) player.qualifyHand = player.qualifyHand.slice(0,2);
+  if (player.scoringHand.length > 4) player.scoringHand = player.scoringHand.slice(0,4);
+
+  for (let i = indices.length-1; i >= 0; i--) player.currentDice.splice(indices[i],1);
+  player.selectedIdx        = new Set();
+  player.mustLockBeforeRoll = false;  // FIX: clear flag after locking
+
+  const qualComplete = player.qualifyHand.includes(1) && player.qualifyHand.includes(4);
+  const handFull     = qualComplete && player.scoringHand.length === 4;
+  if (handFull) showMsg('Hand complete! Press END TURN.');
+  else          showMsg(`Locked! ${player.currentDice.length} dice remain. You can roll again.`);
+  return true;
+}
+
+// ─────────────────────────────────────────
+//  MID-ROLL BETTING
+// ─────────────────────────────────────────
+let midBetAmt = 10;
+
+function showMidRollBetting(pi) {
+  const player  = state.players[pi];
+  const callAmt = Math.max(0, state.currentBet - player.roundBet);
+  midBetAmt = Math.max(10, callAmt || 10);
+
+  document.getElementById('midBetDisplay').textContent = midBetAmt;
+  document.getElementById('midCallInfo').textContent = callAmt > 0 ? `To call: ${callAmt}` : 'No current bet — check or raise';
+  document.getElementById('midCallBtn').style.display  = callAmt > 0 ? '' : 'none';
+  document.getElementById('midCheckBtn').style.display = callAmt === 0 ? '' : 'none';
+
+  document.getElementById('midBetMinus').onclick = () => {
+    midBetAmt = Math.max(callAmt > 0 ? callAmt : 10, midBetAmt - 10);
+    document.getElementById('midBetDisplay').textContent = midBetAmt;
+  };
+  document.getElementById('midBetPlus').onclick = () => {
+    midBetAmt = Math.min(player.tokens, midBetAmt + 10);
+    document.getElementById('midBetDisplay').textContent = midBetAmt;
+  };
+  document.getElementById('midCheckBtn').onclick = () => { hideMidRollBetting(); };
+  document.getElementById('midCallBtn').onclick  = () => {
+    const call = Math.min(callAmt, player.tokens);
+    player.tokens -= call; player.roundBet += call; state.pot += call;
+    updatePotDisplay(); renderPlayersStrip(); hideMidRollBetting();
+  };
+  document.getElementById('midRaiseBtn').onclick = () => {
+    const pay = Math.min(midBetAmt, player.tokens);
+    player.tokens -= pay; player.roundBet += pay; state.pot += pay;
+    state.currentBet = Math.max(state.currentBet, player.roundBet);
+    updatePotDisplay(); renderPlayersStrip(); hideMidRollBetting();
+  };
+  document.getElementById('midFoldBtn').onclick = () => {
+    player.folded = true;
+    hideMidRollBetting(); renderAll(); advanceTurn();
+  };
+
+  document.getElementById('midRollBetting').style.display = 'block';
+  document.getElementById('rollBtn').disabled    = true;
+  document.getElementById('lockBtn').disabled    = true;
+  document.getElementById('endTurnBtn').disabled = true;
+}
+
+function hideMidRollBetting() {
+  document.getElementById('midRollBetting').style.display = 'none';
+  renderActiveBoard();
+}
+
+function finalizePlayerScore(pi) {
+  const p  = state.players[pi];
+  p.qualified  = p.qualifyHand.includes(1) && p.qualifyHand.includes(4);
+  p.finalScore = p.qualified ? p.scoringHand.reduce((a,b)=>a+b,0) : 0;
+}
+
+// ─────────────────────────────────────────
+//  AI TURN
+// ─────────────────────────────────────────
+function doAITurn(pi) {
+  const opp = state.players[pi];
+  opp.qualifyHand = []; opp.scoringHand = []; opp.currentDice = []; opp.rollsUsed = 0;
+  let rollsLeft = MAX_ROLLS, qualHas1 = false, qualHas4 = false;
+
+  while (rollsLeft > 0 && (opp.scoringHand.length < 4 || !qualHas1 || !qualHas4)) {
+    const need = (2 - opp.qualifyHand.length) + (4 - opp.scoringHand.length);
+    if (need <= 0 || opp.tokens < ROLL_COST) break;
+    opp.tokens -= ROLL_COST; state.pot += ROLL_COST; opp.rollsUsed++; rollsLeft--;
+    const rolled  = Array.from({length: need}, () => Math.floor(Math.random()*6)+1);
+    const usedIdx = new Set();
+    if (!qualHas1) { const idx = rolled.findIndex((v,i)=>v===1&&!usedIdx.has(i)); if(idx>=0){opp.qualifyHand.push(1);usedIdx.add(idx);qualHas1=true;} }
+    if (!qualHas4) { const idx = rolled.findIndex((v,i)=>v===4&&!usedIdx.has(i)); if(idx>=0){opp.qualifyHand.push(4);usedIdx.add(idx);qualHas4=true;} }
+    const remaining = rolled.filter((_,i)=>!usedIdx.has(i)).sort((a,b)=>b-a);
+    const goodScore = rollsLeft > 0 ? remaining.slice(0,4-opp.scoringHand.length).filter(v=>v>=3) : remaining.slice(0,4-opp.scoringHand.length);
+    opp.scoringHand.push(...goodScore);
+  }
+
+  if (!qualHas1) { opp.qualifyHand = opp.qualifyHand.filter(v=>v!==1).concat([1]); }
+  if (!opp.qualifyHand.includes(4)) opp.qualifyHand.push(4);
+  opp.qualifyHand = opp.qualifyHand.slice(0,2);
+  while (opp.scoringHand.length < 4) opp.scoringHand.push(Math.floor(Math.random()*3)+3);
+
+  opp.qualified  = true;
+  opp.finalScore = opp.scoringHand.reduce((a,b)=>a+b,0);
+  renderAll();
+  setTimeout(() => advanceTurn(), 400);
+}
+
+// ─────────────────────────────────────────
+//  ROUND RESOLUTION
+// ─────────────────────────────────────────
+function resolveRound() {
+  state.roundPlayers.forEach(i => { if (!state.players[i].folded) finalizePlayerScore(i); });
+
+  const eligible = state.roundPlayers
+    .filter(i => !state.players[i].folded && state.players[i].qualified)
+    .sort((a,b) => state.players[b].finalScore - state.players[a].finalScore);
+
+  const folded      = state.roundPlayers.filter(i => state.players[i].folded);
+  const unqualified = state.roundPlayers.filter(i => !state.players[i].folded && !state.players[i].qualified);
+
+  let winners = [];
+  if (eligible.length > 0) {
+    const best = state.players[eligible[0]].finalScore;
+    winners    = eligible.filter(i => state.players[i].finalScore === best);
+    const share = Math.floor(state.pot / winners.length);
+    winners.forEach(i => { state.players[i].tokens += share; });
+  }
+
+  const finalPot = state.pot;
+  showResults(winners, eligible, folded, unqualified, finalPot);
+  state.pot = 0;
+}
+
+function showResults(winners, eligible, folded, unqualified, finalPot) {
+  const overlay = document.getElementById('resultsOverlay');
+  const title   = document.getElementById('resultsTitle');
+  const body    = document.getElementById('resultsBody');
+
+  title.textContent = winners.length > 0 ? '🏆 ROUND RESULTS' : '🎲 NO WINNERS';
+  title.className   = 'results-title ' + (winners.length > 0 ? 'player-wins' : 'ai-wins');
+
+  const share = winners.length > 0 ? Math.floor(finalPot / winners.length) : 0;
+  let html = `<div style="text-align:center;margin-bottom:12px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--gold)">POT: ${finalPot} tokens</div>`;
+  [...eligible, ...unqualified, ...folded].forEach(i => {
+    const p = state.players[i];
+    const isWinner = winners.includes(i);
+    html += `<div class="score-row ${isWinner?'winner-row':''}">
+      <div>
+        <div class="score-name" style="color:${p.color}">${p.name} ${p.type==='ai'?'🤖':''}</div>
+        ${p.folded ? '<div class="score-unqualified">FOLDED</div>' : !p.qualified ? '<div class="score-unqualified">Did not qualify (no 1 &amp; 4)</div>' : ''}
+      </div>
+      <div style="text-align:right">
+        <div class="score-val">${p.qualified && !p.folded ? p.finalScore : '—'}</div>
+        ${isWinner ? `<div class="token-change plus">+${share} 💰</div>` : ''}
+        <div class="token-change" style="color:${p.tokens > 0 ? 'var(--muted)':'var(--danger)'}">💰 ${p.tokens}</div>
+      </div>
+    </div>`;
+  });
+  body.innerHTML = html;
+  overlay.style.display = 'flex';
+}
+
+document.getElementById('nextRoundBtn').addEventListener('click', () => {
+  document.getElementById('resultsOverlay').style.display = 'none';
+  state.round++;
+  startRound();
+});
+
+function endGame() {
+  const overlay = document.getElementById('resultsOverlay');
+  const title   = document.getElementById('resultsTitle');
+  const body    = document.getElementById('resultsBody');
+  const btn     = document.getElementById('nextRoundBtn');
+  title.textContent = '🎮 GAME OVER';
+  title.className   = 'results-title player-wins';
+  const sorted = [...state.players].sort((a,b)=>b.tokens-a.tokens);
+  body.innerHTML = sorted.map(p=>`<div class="score-row ${p.tokens===sorted[0].tokens?'winner-row':''}">
+    <div class="score-name" style="color:${p.color}">${p.name}</div>
+    <div class="score-val">${p.tokens}</div>
+  </div>`).join('');
+  btn.textContent = '🔄 NEW GAME';
+  btn.onclick     = () => { location.reload(); };
+  overlay.style.display = 'flex';
+}
+
+// ─────────────────────────────────────────
+//  RENDER
+// ─────────────────────────────────────────
+function updatePotDisplay() {
+  document.getElementById('potAmount').textContent = state.pot;
+}
+
+function renderAll() {
+  updatePotDisplay();
+  renderPlayersStrip();
+  renderOpponentsGrid();
+  renderActiveBoard();
+}
+
+function renderPlayersStrip() {
+  const strip = document.getElementById('playersStrip');
+  strip.innerHTML = '';
+  state.roundPlayers.forEach(i => {
+    const p   = state.players[i];
+    const tab = document.createElement('div');
+    tab.className = 'player-tab' + (i===activePIDX?' active-turn':'') + (p.folded?' folded':'') + (p.tokens<=0?' eliminated':'');
+    tab.innerHTML = `
+      <div class="tab-name" style="color:${p.color}">${p.name}</div>
+      <div class="tab-tokens">💰 ${p.tokens}</div>
+      <div class="tab-score">${p.qualified ? '✅ '+p.finalScore : (p.folded ? '❌ Folded' : '—')}</div>
+      <div class="turn-arrow">▼</div>
+    `;
+    strip.appendChild(tab);
+  });
+}
+
+function renderOpponentsGrid() {
+  const grid = document.getElementById('opponentsGrid');
+  grid.innerHTML = '';
+  state.roundPlayers.forEach(i => {
+    const p = state.players[i];
+    if (p.type === 'human' && i === activePIDX) return;
+    const card = document.createElement('div');
+    card.className = 'opp-card' + (i===activePIDX?' active-turn':'') + (p.folded?' folded':'') + (p.finalScore>0?' winner':'');
+    const allDice = [...p.qualifyHand, ...p.scoringHand];
+    let diceHTML = '';
+    for (let j = 0; j < 6; j++) {
+      const v      = allDice[j];
+      const locked = j < p.qualifyHand.length;
+      const tmp    = document.createElement('div');
+      setDieImg(tmp, v||0, false, locked);
+      diceHTML += `<div class="small-die" style="background-image:${tmp.style.backgroundImage}"></div>`;
+    }
+    card.innerHTML = `
+      <div class="opp-name" style="color:${p.color}">${p.name} ${p.type==='ai'?'🤖':''}</div>
+      <div class="opp-meta"><span>💰 ${p.tokens}</span><span>Rolls: ${p.rollsUsed}</span></div>
+      <div class="opp-dice-row">${diceHTML}</div>
+      <div class="opp-qualify-check">${p.folded ? '❌ Folded' : (p.finalScore>0 ? `✅ Score: ${p.finalScore}` : (p.rollsUsed>0 ? '🎲 Playing...' : '⏳ Waiting'))}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderActiveBoard() {
+  const player = state.players[activePIDX];
+  if (!player) return;
+
+  document.getElementById('activeName').textContent   = player.name;
+  document.getElementById('activeTokens').textContent = `💰 ${player.tokens}`;
+  document.getElementById('rollCounter').textContent  = `Rolls: ${player.rollsUsed}/${MAX_ROLLS}`;
+  document.getElementById('rollCostTag').textContent  = `Cost per roll: ${ROLL_COST}`;
+
+  // FIX: show/hide the lock hint banner
+  const banner = document.getElementById('lockHintBanner');
+  banner.style.display = player.mustLockBeforeRoll ? 'block' : 'none';
+
+  // Qualify row
+  const qRow = document.getElementById('qualifyRow');
+  qRow.innerHTML = '';
+  if (!player.qualifyHand.length) {
+    qRow.innerHTML = '<span class="empty-hint">Lock a 1 and a 4 here</span>';
+  } else {
+    player.qualifyHand.forEach(v => {
+      const d = document.createElement('div');
+      d.className = 'die locked'; setDieImg(d, v, false, true); qRow.appendChild(d);
+    });
+  }
+
+  // Scoring row
+  const sRow = document.getElementById('scoringRow');
+  sRow.innerHTML = '';
+  if (!player.scoringHand.length) {
+    sRow.innerHTML = '<span class="empty-hint">Up to 4 scoring dice</span>';
+  } else {
+    player.scoringHand.forEach(v => {
+      const d = document.createElement('div');
+      d.className = 'die locked'; setDieImg(d, v, false, false); sRow.appendChild(d);
+    });
+    if (player.scoringHand.length < 4) {
+      const hint = document.createElement('span');
+      hint.className = 'empty-hint';
+      hint.textContent = `+${4-player.scoringHand.length} slots`;
+      sRow.appendChild(hint);
+    }
+  }
+
+  // Roll row
+  const rRow = document.getElementById('rollRow');
+  rRow.innerHTML = '';
+  if (!player.currentDice.length) {
+    rRow.innerHTML = `<span class="empty-hint">${player.rollsUsed===0 ? 'Press ROLL to begin' : 'No dice — roll again or end turn'}</span>`;
+  } else {
+    player.currentDice.forEach((v, i) => {
+      const d   = document.createElement('div');
+      const sel = player.selectedIdx.has(i);
+      d.className = 'die selectable' + (sel ? ' selected' : '');
+      setDieImg(d, v, sel, false);
+      d.addEventListener('click', () => {
+        if (player.selectedIdx.has(i)) player.selectedIdx.delete(i);
+        else player.selectedIdx.add(i);
+        renderActiveBoard();
+        document.getElementById('lockBtn').disabled = player.selectedIdx.size === 0;
+      });
+      rRow.appendChild(d);
+    });
+  }
+
+  const qualFull = player.qualifyHand.includes(1) && player.qualifyHand.includes(4);
+  const handFull = qualFull && player.scoringHand.length === 4;
+  const midOpen  = document.getElementById('midRollBetting').style.display !== 'none';
+
+  // FIX: roll button disabled if mustLockBeforeRoll
+  document.getElementById('rollBtn').disabled    = midOpen || player.rollsUsed >= MAX_ROLLS || player.tokens < ROLL_COST || handFull || player.mustLockBeforeRoll;
+  document.getElementById('lockBtn').disabled    = midOpen || player.selectedIdx.size === 0;
+  document.getElementById('endTurnBtn').disabled = midOpen || player.rollsUsed === 0;
+}
+
+// ─────────────────────────────────────────
+//  MESSAGES
+// ─────────────────────────────────────────
+let msgTimer;
+function showMsg(text, type='') {
+  const box = document.getElementById('msgBox');
+  box.textContent = text;
+  box.className   = 'msg-box ' + type;
+  clearTimeout(msgTimer);
+  if (type) msgTimer = setTimeout(() => { box.className = 'msg-box'; }, 3000);
+}
+
+// ─────────────────────────────────────────
+//  BOOT
+// ─────────────────────────────────────────
+renderSetup();
+</script>
+</body>
+</html>
