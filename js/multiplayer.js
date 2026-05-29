@@ -394,9 +394,11 @@ function renderOnlineMyBoard(me, snap) {
 
   const midOpen = document.getElementById('midRollBetting').style.display !== 'none';
   const handFull = me.qualifyHand.includes(1) && me.qualifyHand.includes(4) && me.scoringHand.length===4;
-  document.getElementById('rollBtn').disabled    = !isMyTurn || midOpen || me.rollsUsed>=MAX_ROLLS || me.tokens<ROLL_COST || handFull;
+  document.getElementById('rollBtn').disabled    = !isMyTurn || midOpen || me.rollsUsed>=MAX_ROLLS || me.tokens<ROLL_COST || handFull || !!me.mustLockBeforeRoll;
   document.getElementById('lockBtn').disabled    = !isMyTurn || midOpen || !(window._onlineSelected && window._onlineSelected.size);
   document.getElementById('endTurnBtn').disabled = !isMyTurn || midOpen || me.rollsUsed===0;
+  // Reset selection when a new snapshot arrives and dice changed
+  if (!me.currentDice || me.currentDice.length === 0) window._onlineSelected = new Set();
 }
 
 function setOnlineButtonsEnabled(enabled) {
