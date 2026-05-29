@@ -191,9 +191,9 @@ function handleServerMsg(msg) {
       break;
 
     case 'round_start':
-      document.getElementById('lobbyScreen').style.display = 'none';
-      document.getElementById('gameScreen').style.display  = '';
-      document.getElementById('resultsBar').style.display  = 'none';
+      document.getElementById('lobbyScreen').style.display  = 'none';
+      document.getElementById('gameScreen').style.display   = 'block';
+      document.getElementById('resultsBar').style.display   = 'none';
       document.getElementById('resultsOverlay').style.display = 'none';
       showMsg(`Round ${msg.round} started! Ante collected.`);
       break;
@@ -221,7 +221,7 @@ function handleServerMsg(msg) {
 
     case 'betting_done':
       document.getElementById('bettingPanel').style.display = 'none';
-      document.getElementById('activeBoard').style.display  = '';
+      document.getElementById('activeBoard').style.display  = 'block';
       break;
 
     case 'round_over':
