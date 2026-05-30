@@ -400,7 +400,7 @@ function renderOnlineMyBoard(me, snap) {
     document.getElementById('lockHintLine').style.display = 'block';
   }
 
-  const midOpen  = document.getElementById('midRollBetting').style.display !== 'none';
+  const midOpen  = document.getElementById('midRollBetting').style.display === 'block';
   const handFull = me.qualifyHand.includes(1) && me.qualifyHand.includes(4) && me.scoringHand.length===4;
   // In roll2, player must lock ≥1 die before ending turn (unless hand was already full from roll1)
   const canEndRoll2 = !isRoll2 || handFull || me.lockedInRoll2;
