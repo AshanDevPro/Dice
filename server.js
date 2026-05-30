@@ -61,19 +61,23 @@ function roomSnapshot(room) {
   return {
     type:       'snapshot',
     players:    room.players.map(p => ({
-      id:          p.id,
-      name:        p.name,
-      tokens:      p.tokens,
-      color:       p.color,
-      colorIdx:    p.colorIdx,
-      qualifyHand: p.qualifyHand,
-      scoringHand: p.scoringHand,
-      currentDice: p.currentDice,
-      rollsUsed:   p.rollsUsed,
-      finalScore:  p.finalScore,
-      folded:      p.folded,
-      qualified:   p.qualified,
-      roundBet:    p.roundBet,
+      id:                 p.id,
+      name:               p.name,
+      tokens:             p.tokens,
+      color:              p.color,
+      colorIdx:           p.colorIdx,
+      qualifyHand:        p.qualifyHand,
+      scoringHand:        p.scoringHand,
+      currentDice:        p.currentDice,
+      rollsUsed:          p.rollsUsed,
+      mustLockBeforeRoll: p.mustLockBeforeRoll,
+      finalScore:         p.finalScore,
+      folded:             p.folded,
+      qualified:          p.qualified,
+      roundBet:           p.roundBet,
+      roll1Done:          p.roll1Done      || false,
+      roll2Done:          p.roll2Done      || false,
+      lockedInRoll2:      p.lockedInRoll2  || false,
     })),
     pot:         room.pot,
     round:       room.round,
@@ -112,7 +116,7 @@ function nonFolded(room) {
 }
 
 function startRound(room) {
-  room.pot = 0; room.currentBet = 0; room.phase = 'roll';
+  room.pot = 0; room.currentBet = 0; room.phase = 'roll1';
   const active = room.players.filter(p => p.tokens > 0);
   if (active.length < 2) { endGame(room); return; }
 
@@ -122,6 +126,7 @@ function startRound(room) {
     p.rollsUsed = 0; p.mustLockBeforeRoll = false;
     p.finalScore = 0; p.folded = false; p.qualified = false; p.roundBet = 0;
     p.selectedIdx = [];
+    p.roll1Done = false; p.roll2Done = false; p.lockedInRoll2 = false;
     // Collect ante
     const ante = Math.min(ANTE, p.tokens);
     p.tokens  -= ante; p.roundBet += ante; room.pot += ante;
@@ -140,15 +145,53 @@ function broadcastTurnNotice(room) {
   broadcast(room, { type:'your_turn', playerId: room.turnPlayerId, playerName: p.name });
 }
 
-function advanceTurn(room) {
+function startRoll2(room) {
+  room.phase = 'roll2';
   const active = room.players.filter(p => p.tokens > 0 && !p.folded);
-  const idx    = active.findIndex(p => p.id === room.turnPlayerId);
-  if (idx === -1 || idx + 1 >= active.length) {
-    resolveRound(room);
-  } else {
-    room.turnPlayerId = active[idx + 1].id;
+  active.forEach(p => {
+    p.roll2Done         = false;
+    p.lockedInRoll2     = false;
+    p.currentDice       = [];
+    p.rollsUsed         = 0;
+    p.mustLockBeforeRoll = false;
+  });
+  room.turnPlayerId = active[0].id;
+  broadcast(room, roomSnapshot(room));
+  broadcast(room, { type: 'phase_change', phase: 'roll2' });
+  broadcastTurnNotice(room);
+  // First player of roll2 gets no pre-turn bet prompt — they're the opener
+}
+
+function advanceTurnInPhase(room) {
+  const active = room.players.filter(p => p.tokens > 0 && !p.folded);
+
+  if (room.phase === 'roll1') {
+    if (active.every(p => p.roll1Done)) { startRoll2(room); return; }
+    const curIdx = active.findIndex(p => p.id === room.turnPlayerId);
+    let next = null;
+    for (let i = 1; i <= active.length; i++) {
+      const c = active[(curIdx + i) % active.length];
+      if (!c.roll1Done) { next = c; break; }
+    }
+    if (!next) { startRoll2(room); return; }
+    room.turnPlayerId = next.id;
+    room.bettingQueue = [next.id];
     broadcast(room, roomSnapshot(room));
-    broadcastTurnNotice(room);
+    serveBettingQueue(room);
+
+  } else if (room.phase === 'roll2') {
+    if (active.every(p => p.roll2Done)) { resolveRound(room); return; }
+    const curIdx = active.findIndex(p => p.id === room.turnPlayerId);
+    let next = null;
+    for (let i = 1; i <= active.length; i++) {
+      const c = active[(curIdx + i) % active.length];
+      if (!c.roll2Done) { next = c; break; }
+    }
+    if (!next) { resolveRound(room); return; }
+    room.turnPlayerId = next.id;
+    room.bettingQueue = [next.id];
+    broadcast(room, roomSnapshot(room));
+    serveBettingQueue(room);
   }
 }
 
@@ -193,6 +236,7 @@ function lockDice(room, playerId, selectedIdx) {
   for (let i=selectedIdx.length-1; i>=0; i--) p.currentDice.splice(selectedIdx[i],1);
   p.selectedIdx        = [];
   p.mustLockBeforeRoll = false;
+  if (room.phase === 'roll2') p.lockedInRoll2 = true;
 
   broadcast(room, roomSnapshot(room));
   return { ok: true };
@@ -201,12 +245,31 @@ function lockDice(room, playerId, selectedIdx) {
 function endTurn(room, playerId) {
   const p = getPlayer(room, playerId);
   if (!p || room.turnPlayerId !== playerId) return { error: 'Not your turn' };
-  if (p.rollsUsed === 0) return { error: 'Must roll at least once' };
+
+  // Determine if hand is already full (both qualifiers + 4 scoring dice)
+  const qualSlots  = (p.qualifyHand.includes(1)?0:1)+(p.qualifyHand.includes(4)?0:1);
+  const scoreSlots = 4 - p.scoringHand.length;
+  const handFull   = qualSlots + scoreSlots === 0;
+
+  if (!handFull && p.rollsUsed === 0) return { error: 'Must roll at least once' };
+  if (room.phase === 'roll2' && !handFull && !p.lockedInRoll2) return { error: 'Must lock at least one die this phase' };
+
+  // Auto-bet 10 tokens when ending turn (sets minimum stake for next player to call)
+  const bet = Math.min(10, p.tokens);
+  if (bet > 0) {
+    p.tokens -= bet; p.roundBet += bet; room.pot += bet;
+    room.currentBet = Math.max(room.currentBet, p.roundBet);
+  }
+
   p.qualified  = p.qualifyHand.includes(1) && p.qualifyHand.includes(4);
   p.finalScore = p.qualified ? p.scoringHand.reduce((a,b)=>a+b,0) : 0;
   p.currentDice = [];
+
+  if (room.phase === 'roll1') p.roll1Done = true;
+  else if (room.phase === 'roll2') p.roll2Done = true;
+
   broadcast(room, roomSnapshot(room));
-  advanceTurn(room);
+  advanceTurnInPhase(room);
   return { ok: true };
 }
 

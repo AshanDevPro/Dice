@@ -224,6 +224,12 @@ function handleServerMsg(msg) {
       document.getElementById('activeBoard').style.display  = 'block';
       break;
 
+    case 'phase_change':
+      if (msg.phase === 'roll2') {
+        showMsg('⚔️ PHASE 2 — Second Roll! You must lock at least 1 die before ending your turn.');
+      }
+      break;
+
     case 'round_over':
       renderOnlineResults(msg);
       break;
@@ -333,9 +339,11 @@ function renderOnlineMyBoard(me, snap) {
   document.getElementById('rollCounter').textContent     = `rolls: ${me.rollsUsed}/${MAX_ROLLS}`;
   document.getElementById('rollSavePill').textContent    = me.rollsUsed===0 ? '(perfect save!)' : '';
   document.getElementById('rollCostPill').textContent    = `Cost ${ROLL_COST}`;
-  document.getElementById('lockHint').style.display      = me.mustLockBeforeRoll ? '' : 'none';
-  document.getElementById('rollZoneLabel').innerHTML     =
-    `<span class="zone-icon">🎲</span> CURRENT ROLL (rolls: ${me.rollsUsed}/${MAX_ROLLS}) | Cost: ${ROLL_COST}`;
+  const isRoll2 = snap.phase === 'roll2';
+  document.getElementById('lockHint').style.display = me.mustLockBeforeRoll ? '' : 'none';
+  document.getElementById('rollZoneLabel').innerHTML = isRoll2
+    ? `<span class="zone-icon">🎲</span> PHASE 2 — SECOND ROLL (lock ≥1 die to end turn) | rolls: ${me.rollsUsed}/${MAX_ROLLS} | Cost: ${ROLL_COST}`
+    : `<span class="zone-icon">🎲</span> CURRENT ROLL (rolls: ${me.rollsUsed}/${MAX_ROLLS}) | Cost: ${ROLL_COST}`;
 
   // Qualify row
   const qRow = document.getElementById('qualifyRow');
@@ -392,11 +400,13 @@ function renderOnlineMyBoard(me, snap) {
     document.getElementById('lockHintLine').style.display = 'block';
   }
 
-  const midOpen = document.getElementById('midRollBetting').style.display !== 'none';
+  const midOpen  = document.getElementById('midRollBetting').style.display !== 'none';
   const handFull = me.qualifyHand.includes(1) && me.qualifyHand.includes(4) && me.scoringHand.length===4;
+  // In roll2, player must lock ≥1 die before ending turn (unless hand was already full from roll1)
+  const canEndRoll2 = !isRoll2 || handFull || me.lockedInRoll2;
   document.getElementById('rollBtn').disabled    = !isMyTurn || midOpen || me.rollsUsed>=MAX_ROLLS || me.tokens<ROLL_COST || handFull || !!me.mustLockBeforeRoll;
   document.getElementById('lockBtn').disabled    = !isMyTurn || midOpen || !(window._onlineSelected && window._onlineSelected.size);
-  document.getElementById('endTurnBtn').disabled = !isMyTurn || midOpen || me.rollsUsed===0;
+  document.getElementById('endTurnBtn').disabled = !isMyTurn || midOpen || (!handFull && me.rollsUsed===0) || !canEndRoll2;
   // Reset selection when a new snapshot arrives and dice changed
   if (!me.currentDice || me.currentDice.length === 0) window._onlineSelected = new Set();
 }
@@ -439,8 +449,9 @@ function showOnlineBetting(currentBet) {
     pre.appendChild(b);
   });
 
+  document.getElementById('callBtn').textContent = callAmt > 0 ? `CALL (−${callAmt})` : 'CALL';
   document.getElementById('checkBtn').onclick = () => {
-    if (callAmt>0){showMsg('Cannot check — call or fold!','error');return;}
+    if (callAmt>0){showMsg('Cannot check — must call or fold!','error');return;}
     sendBet('check',0);
   };
   document.getElementById('callBtn').onclick  = () => sendBet('call',  callAmt);
