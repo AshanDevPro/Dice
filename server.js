@@ -4,15 +4,17 @@
  * Requires: npm install ws
  */
 
-const http = require('http');
-const fs   = require('fs');
-const path = require('path');
+const http   = require('http');
+const fs     = require('fs');
+const path   = require('path');
+const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
-const PORT    = process.env.PORT || 3000;
-const ANTE    = 50;
-const ROLL_COST = 10;
-const MAX_ROLLS = 6;
+const PORT        = process.env.PORT || 3000;
+const ANTE        = 50;
+const ROLL_COST   = 10;
+const MAX_ROLLS   = 6;
+const START_TOKENS = 500;
 
 // ── Static file server ──────────────────────────────────────────────────────
 const MIME = {
@@ -26,23 +28,111 @@ const MIME = {
   '.svg':  'image/svg+xml',
 };
 
-const httpServer = http.createServer((req, res) => {
-  let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
-  const ext  = path.extname(filePath);
-  const mime = MIME[ext] || 'application/octet-stream';
+// ── User accounts (file-backed) ──────────────────────────────────────────────
+const DATA_DIR   = path.join(__dirname, 'data');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
+let users    = {};   // lowerKey → { username, passwordHash, salt, tokens }
+let sessions = {};   // sessionToken → lowerKey (in-memory; resets on restart)
+
+function loadUsers() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (fs.existsSync(USERS_FILE)) users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+  } catch { users = {}; }
+}
+function saveUsers() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+  } catch (e) { console.error('saveUsers:', e.message); }
+}
+function hashPwd(pwd, salt) {
+  return crypto.pbkdf2Sync(pwd, salt, 10000, 32, 'sha256').toString('hex');
+}
+function makeToken() { return crypto.randomBytes(20).toString('hex'); }
+
+loadUsers();
+
+// ── HTTP server ──────────────────────────────────────────────────────────────
+function readBody(req, cb) {
+  let body = '';
+  req.on('data', d => { body += d; if (body.length > 8192) req.destroy(); });
+  req.on('end',  () => { try { cb(JSON.parse(body)); } catch { cb(null); } });
+}
+
+const httpServer = http.createServer((req, res) => {
+  const json = (code, obj) => {
+    res.writeHead(code, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(obj));
+  };
+
+  // ── POST /api/register ───────────────────────────────────────────────────
+  if (req.url === '/api/register' && req.method === 'POST') {
+    readBody(req, data => {
+      if (!data) return json(400, { error: 'Bad request' });
+      const key = data.username?.trim().toLowerCase();
+      if (!key || key.length < 2 || key.length > 20 || !data.password)
+        return json(400, { error: 'Username (2–20 chars) and password required' });
+      if (users[key]) return json(409, { error: 'Username already taken' });
+      const salt = crypto.randomBytes(16).toString('hex');
+      const user = { username: data.username.trim(), passwordHash: hashPwd(data.password, salt), salt, tokens: START_TOKENS };
+      users[key] = user;
+      const token = makeToken();
+      sessions[token] = key;
+      saveUsers();
+      json(200, { sessionToken: token, username: user.username, tokens: user.tokens });
+    });
+    return;
+  }
+
+  // ── POST /api/login ──────────────────────────────────────────────────────
+  if (req.url === '/api/login' && req.method === 'POST') {
+    readBody(req, data => {
+      if (!data) return json(400, { error: 'Bad request' });
+      const key  = data.username?.trim().toLowerCase();
+      const user = key && users[key];
+      if (!user || hashPwd(data.password || '', user.salt) !== user.passwordHash)
+        return json(401, { error: 'Invalid username or password' });
+      const token = makeToken();
+      sessions[token] = key;
+      json(200, { sessionToken: token, username: user.username, tokens: user.tokens });
+    });
+    return;
+  }
+
+  // ── GET /api/me ──────────────────────────────────────────────────────────
+  if (req.url === '/api/me' && req.method === 'GET') {
+    const token = req.headers['authorization']?.replace('Bearer ', '');
+    const key   = token && sessions[token];
+    const user  = key && users[key];
+    if (!user) return json(401, { error: 'Not authenticated' });
+    json(200, { username: user.username, tokens: user.tokens });
+    return;
+  }
+
+  // ── Static files ─────────────────────────────────────────────────────────
+  let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
+  const ext    = path.extname(filePath);
+  const mime   = MIME[ext] || 'application/octet-stream';
   fs.readFile(filePath, (err, data) => {
-    if (err) {
-      res.writeHead(404); res.end('Not found');
-    } else {
-      res.writeHead(200, { 'Content-Type': mime });
-      res.end(data);
-    }
+    if (err) { res.writeHead(404); res.end('Not found'); }
+    else     { res.writeHead(200, { 'Content-Type': mime }); res.end(data); }
   });
 });
 
 // ── Room management ──────────────────────────────────────────────────────────
-const rooms = {};   // roomCode → Room
+const rooms = {};
+
+function saveRoomTokens(room) {
+  let dirty = false;
+  room.clients.forEach(c => {
+    if (!c.userKey || !users[c.userKey]) return;
+    const p = room.players.find(pl => pl.id === c.id);
+    if (p) { users[c.userKey].tokens = Math.max(p.tokens, 0); dirty = true; }
+  });
+  if (dirty) saveUsers();
+}
 
 function makeCode() {
   return Math.random().toString(36).slice(2,6).toUpperCase();
@@ -228,9 +318,15 @@ function lockDice(room, playerId, selectedIdx) {
 
   for (const v of vals) {
     const qf = p.qualifyHand.includes(1) && p.qualifyHand.includes(4);
-    if (!qf && v===1 && m1)        { p.qualifyHand.push(1); m1=false; }
-    else if (!qf && v===4 && m4)   { p.qualifyHand.push(4); m4=false; }
-    else if (p.scoringHand.length<4){ p.scoringHand.push(v); }
+    if (!qf && v===1 && m1)          { p.qualifyHand.push(1); m1=false; }
+    else if (!qf && v===4 && m4)     { p.qualifyHand.push(4); m4=false; }
+    else if (p.scoringHand.length<4) { p.scoringHand.push(v); }
+    else if (!qf) {
+      // Scoring hand full and wrong value for qualifier — force into the open
+      // qualifier slot so the hand fills and infinite rerolling is prevented.
+      if (m1)      { p.qualifyHand.push(v); m1=false; }
+      else if (m4) { p.qualifyHand.push(v); m4=false; }
+    }
   }
 
   for (let i=selectedIdx.length-1; i>=0; i--) p.currentDice.splice(selectedIdx[i],1);
@@ -331,12 +427,14 @@ function resolveRound(room) {
     pot:     room.pot,
   });
 
-  room.pot   = 0;
+  room.pot = 0;
   room.round++;
+  saveRoomTokens(room);
   setTimeout(() => startRound(room), 5000);
 }
 
 function endGame(room) {
+  saveRoomTokens(room);
   broadcast(room, { type:'game_over', players: room.players.map(p=>({id:p.id,name:p.name,tokens:p.tokens})) });
 }
 
@@ -344,7 +442,7 @@ function endGame(room) {
 const wss = new WebSocketServer({ server: httpServer });
 
 wss.on('connection', ws => {
-  const client = { ws, id: makeCode(), roomCode: null };
+  const client = { ws, id: makeCode(), roomCode: null, userKey: null };
 
   ws.on('message', raw => {
     let msg;
@@ -353,16 +451,22 @@ wss.on('connection', ws => {
     switch (msg.type) {
 
       case 'create_room': {
+        const uKey     = msg.sessionToken && sessions[msg.sessionToken];
+        const acct     = uKey && users[uKey];
+        const name     = acct ? acct.username : (msg.name || 'Player');
+        const startTok = acct ? Math.max(acct.tokens, 100) : (msg.startTokens || START_TOKENS);
+
         const code = makeCode();
-        const room = createRoom(code, client, msg.startTokens || 500);
-        rooms[code] = room;
+        const room = createRoom(code, client, startTok);
+        rooms[code]     = room;
         client.roomCode = code;
-        client.name     = msg.name || 'Player';
+        client.name     = name;
+        client.userKey  = uKey || null;
         room.clients.push(client);
         const colorIdx = 0;
         room.players.push({
-          id: client.id, name: client.name,
-          tokens: room.startTokens, color: COLORS[colorIdx], colorIdx,
+          id: client.id, name,
+          tokens: startTok, color: COLORS[colorIdx], colorIdx,
           qualifyHand:[], scoringHand:[], currentDice:[], selectedIdx:[],
           rollsUsed:0, mustLockBeforeRoll:false,
           finalScore:0, folded:false, qualified:false, roundBet:0,
@@ -374,16 +478,23 @@ wss.on('connection', ws => {
 
       case 'join_room': {
         const room = rooms[msg.code];
-        if (!room)          { sendTo(client, { type:'error', msg:'Room not found' }); break; }
-        if (room.started)   { sendTo(client, { type:'error', msg:'Game already started' }); break; }
+        if (!room)                    { sendTo(client, { type:'error', msg:'Room not found' }); break; }
+        if (room.started)             { sendTo(client, { type:'error', msg:'Game already started' }); break; }
         if (room.players.length >= 6) { sendTo(client, { type:'error', msg:'Room full' }); break; }
+
+        const uKey     = msg.sessionToken && sessions[msg.sessionToken];
+        const acct     = uKey && users[uKey];
+        const name     = acct ? acct.username : (msg.name || `Player ${room.players.length+1}`);
+        const startTok = acct ? Math.max(acct.tokens, 100) : room.startTokens;
+
         client.roomCode = room.code;
-        client.name     = msg.name || `Player ${room.players.length+1}`;
+        client.name     = name;
+        client.userKey  = uKey || null;
         room.clients.push(client);
         const colorIdx = room.players.length % COLORS.length;
         room.players.push({
-          id: client.id, name: client.name,
-          tokens: room.startTokens, color: COLORS[colorIdx], colorIdx,
+          id: client.id, name,
+          tokens: startTok, color: COLORS[colorIdx], colorIdx,
           qualifyHand:[], scoringHand:[], currentDice:[], selectedIdx:[],
           rollsUsed:0, mustLockBeforeRoll:false,
           finalScore:0, folded:false, qualified:false, roundBet:0,

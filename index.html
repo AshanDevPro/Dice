@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>PigNusDice — 1•4•24</title>
   <link rel="stylesheet" href="css/style.css">
-  <!-- Critical lobby styles inline — ensures lobby shows even if CSS file is cached/old -->
+  <!-- Critical lobby / auth styles inline -->
   <style>
     #lobbyScreen {
       background: #1e1830;
@@ -26,12 +26,12 @@
     }
     .lobby-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
     .lobby-row label { font-size: 0.78rem; color: #9a8ab0; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
-    .lobby-row input[type=text] {
+    .lobby-row input[type=text], .lobby-row input[type=password] {
       background: #0d0d14; border: 1px solid #4a3a6a; border-radius: 9px;
       padding: 10px 13px; color: #e8e0f0; font-size: 1rem; outline: none; width: 100%;
       font-family: inherit;
     }
-    .lobby-row input[type=text]:focus { border-color: #e63e6d; }
+    .lobby-row input:focus { border-color: #e63e6d; }
     .pill-btn {
       padding: 12px 20px; border-radius: 50px; border: none;
       font-weight: 800; font-size: 1rem; cursor: pointer;
@@ -61,6 +61,76 @@
     #lobbyWaiting { color: #e8e0f0; }
     #lobbyStatusMsg { text-align:center; color:#7a7090; font-size:0.85rem; margin:10px 0; }
     #lobbyRoomCode { font-size:3rem; font-weight:900; color:#ffd166; letter-spacing:0.3em; text-align:center; text-shadow:0 0 20px rgba(255,209,102,0.4); }
+
+    /* ── Auth screen ── */
+    #authScreen {
+      background: #1e1830;
+      border: 2px solid #e63e6d;
+      border-radius: 18px;
+      padding: 28px 24px 24px;
+      margin: 8px 0;
+      box-shadow: 0 0 32px rgba(230,62,109,0.3);
+      text-align: center;
+    }
+    .auth-logo {
+      width: 96px; height: 96px;
+      object-fit: cover;
+      border-radius: 16px;
+      margin: 0 auto 14px;
+      display: block;
+      border: 2px solid rgba(230,62,109,0.4);
+      box-shadow: 0 0 20px rgba(230,62,109,0.25);
+    }
+    .auth-tabs {
+      display: flex; gap: 6px;
+      background: #13101a;
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 16px;
+    }
+    .auth-tab {
+      flex: 1; padding: 8px; border-radius: 8px; border: none;
+      font-family: inherit; font-size: 0.88rem; font-weight: 800;
+      letter-spacing: 0.08em; cursor: pointer; transition: all 0.15s;
+      background: transparent; color: #7a7090;
+    }
+    .auth-tab.active { background: #e63e6d; color: white; }
+    #authError { display:none; color:#ff6b6b; text-align:center; padding:8px; font-size:0.88rem; }
+    .auth-divider {
+      display: flex; align-items: center; gap: 10px;
+      color: #4a3a6a; font-size: 0.78rem; margin: 14px 0;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: ''; flex: 1; height: 1px; background: #2e2442;
+    }
+    .account-badge {
+      display: none;
+      background: rgba(6,214,160,0.1);
+      border: 1px solid rgba(6,214,160,0.3);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      color: #06d6a0;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    /* ── Header logo + sound toggle ── */
+    .header-logo {
+      width: 64px; height: 64px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin: 0 auto 6px;
+      display: block;
+      border: 1px solid rgba(230,62,109,0.3);
+    }
+    .sound-toggle {
+      background: #2a2040; border: 1px solid #3a2a5a; border-radius: 8px;
+      color: #c0b0d8; font-size: 1.1rem; cursor: pointer;
+      padding: 4px 10px; margin-top: 6px;
+      display: inline-block; transition: all 0.15s;
+    }
+    .sound-toggle:hover { border-color: #e63e6d; color: #e63e6d; }
   </style>
 </head>
 <body>
@@ -69,8 +139,10 @@
   <div class="ad-slot ad-slot-top">📢 Advertisement</div>
 
   <div class="header">
+    <img src="assets/main_img.jpg" class="header-logo" alt="PignusDice">
     <div class="game-title">PIGNUS DICE</div>
     <div class="subtitle">1 • 4 • 24 — Lock a 1 &amp; a 4 — Score highest with 4 dice</div>
+    <button class="sound-toggle" id="soundToggleBtn" onclick="toggleSoundBtn()">🔊</button>
   </div>
 
   <div class="game-layout">
@@ -78,18 +150,59 @@
 
     <div class="game-main">
 
+      <!-- ══ AUTH SCREEN ══ -->
+      <div id="authScreen">
+        <img src="assets/main_img.jpg" class="auth-logo" alt="PignusDice Logo">
+        <div class="setup-title">PIGNUS DICE</div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="loginTabBtn">LOGIN</button>
+          <button class="auth-tab"        id="registerTabBtn">REGISTER</button>
+        </div>
+
+        <div id="loginForm">
+          <div class="lobby-row" style="text-align:left;">
+            <label>Username</label>
+            <input type="text"     id="loginUsername" placeholder="Your username" autocomplete="username">
+          </div>
+          <div class="lobby-row" style="text-align:left;">
+            <label>Password</label>
+            <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+          </div>
+          <button class="pill-btn pill-btn-roll" id="loginBtn" style="width:100%;margin-top:8px;">▶ SIGN IN</button>
+        </div>
+
+        <div id="registerForm" style="display:none;">
+          <div class="lobby-row" style="text-align:left;">
+            <label>Username (2–20 characters)</label>
+            <input type="text"     id="regUsername" placeholder="Choose a username" autocomplete="username">
+          </div>
+          <div class="lobby-row" style="text-align:left;">
+            <label>Password</label>
+            <input type="password" id="regPassword" placeholder="Choose a password" autocomplete="new-password">
+          </div>
+          <button class="pill-btn pill-btn-roll" id="registerBtn" style="width:100%;margin-top:8px;">✅ CREATE ACCOUNT</button>
+        </div>
+
+        <div id="authError"></div>
+
+        <div class="auth-divider">or</div>
+        <button class="pill-btn pill-btn-new" id="guestBtn" style="width:100%;">👤 PLAY AS GUEST</button>
+      </div>
+
       <!-- ══ ONLINE LOBBY SCREEN ══ -->
-      <div id="lobbyScreen">
+      <div id="lobbyScreen" style="display:none;">
         <div class="setup-title">🌐 ONLINE MULTIPLAYER</div>
 
         <div id="lobbyConnect">
+          <div id="accountBadge" class="account-badge"></div>
           <div class="lobby-row">
             <label>Your Name</label>
             <input type="text" id="lobbyName" placeholder="Enter your name" maxlength="18">
           </div>
           <div class="lobby-row" style="margin-top:8px;">
             <label>Server</label>
-            <input type="text" id="lobbyServer" placeholder="ws://yourserver.com" value="wss://pignusdice.com">
+            <input type="text" id="lobbyServer" placeholder="ws://yourserver.com">
           </div>
           <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
             <button class="pill-btn pill-btn-roll" id="lobbyCreateBtn" style="flex:1;">🏠 CREATE ROOM</button>
@@ -268,7 +381,8 @@
   </div>
 </div>
 
-<script src="js/multiplayer.js"></script>
+<script src="js/sounds.js"></script>
 <script src="js/game.js"></script>
+<script src="js/multiplayer.js"></script>
 </body>
 </html>

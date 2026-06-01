@@ -2,21 +2,179 @@
 
 // ══════════════════════════════════════════
 //  MULTIPLAYER CLIENT
-//  Handles WebSocket connection, lobby, and
-//  online game rendering (server-authoritative)
 // ══════════════════════════════════════════
 
+const _wsProto   = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const _wsDefault = _wsProto + '//' + window.location.host;
+
 let mp = {
-  ws:           null,
-  myId:         null,
-  roomCode:     null,
-  isHost:       false,
-  serverUrl:    'wss://pignusdice.com',
-  myName:       'Player',
-  gameState:    null,
-  connected:    false,
-  connecting:   false,   // guard against rapid clicks
+  ws:         null,
+  myId:       null,
+  roomCode:   null,
+  isHost:     false,
+  serverUrl:  _wsDefault,
+  myName:     'Player',
+  gameState:  null,
+  connected:  false,
+  connecting: false,
 };
+
+// ── Auth state ────────────────────────────────────────────────────────────────
+const auth = {
+  sessionToken: localStorage.getItem('pignusDiceSession') || null,
+  username:     null,
+  tokens:       null,
+  isGuest:      false,
+};
+
+// ── Sound toggle ──────────────────────────────────────────────────────────────
+function toggleSoundBtn() {
+  const muted = window.SFX && window.SFX.toggleMute();
+  document.getElementById('soundToggleBtn').textContent = muted ? '🔇' : '🔊';
+}
+// Reflect stored mute state on load
+(function () {
+  if (window.SFX && window.SFX.isMuted())
+    document.getElementById('soundToggleBtn').textContent = '🔇';
+})();
+
+// ── Auth screen logic ─────────────────────────────────────────────────────────
+function authShowError(msg) {
+  const el = document.getElementById('authError');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function authShowLobby() {
+  document.getElementById('authScreen').style.display  = 'none';
+  document.getElementById('lobbyScreen').style.display = '';
+  // Pre-fill name input
+  const nameEl = document.getElementById('lobbyName');
+  if (auth.username) {
+    nameEl.value    = auth.username;
+    nameEl.readOnly = true;
+    nameEl.style.opacity = '0.6';
+  } else {
+    nameEl.readOnly = false;
+    nameEl.style.opacity = '';
+  }
+  // Show account badge
+  updateAccountBadge();
+  // Set server URL
+  document.getElementById('lobbyServer').value = _wsDefault;
+}
+
+function updateAccountBadge() {
+  const badge = document.getElementById('accountBadge');
+  if (!badge) return;
+  if (auth.username) {
+    badge.textContent = '👤 ' + auth.username + ' — 💰 ' + (auth.tokens !== null ? auth.tokens : '—') + ' tokens';
+    badge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// Check saved session on load
+async function authInit() {
+  if (auth.sessionToken) {
+    try {
+      const res  = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + auth.sessionToken } });
+      if (res.ok) {
+        const data      = await res.json();
+        auth.username   = data.username;
+        auth.tokens     = data.tokens;
+        auth.isGuest    = false;
+        mp.myName       = data.username;
+        authShowLobby();
+        return;
+      }
+    } catch {}
+    auth.sessionToken = null;
+    localStorage.removeItem('pignusDiceSession');
+  }
+  // No valid session — show auth screen
+  document.getElementById('authScreen').style.display = '';
+}
+
+authInit();
+
+// Tab switching
+document.getElementById('loginTabBtn').addEventListener('click', () => {
+  document.getElementById('loginForm').style.display    = '';
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('loginTabBtn').classList.add('active');
+  document.getElementById('registerTabBtn').classList.remove('active');
+  authShowError('');
+});
+document.getElementById('registerTabBtn').addEventListener('click', () => {
+  document.getElementById('loginForm').style.display    = 'none';
+  document.getElementById('registerForm').style.display = '';
+  document.getElementById('loginTabBtn').classList.remove('active');
+  document.getElementById('registerTabBtn').classList.add('active');
+  authShowError('');
+});
+
+// Login
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!username || !password) { authShowError('Enter username and password'); return; }
+  try {
+    const res  = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) { authShowError(data.error || 'Login failed'); return; }
+    auth.sessionToken = data.sessionToken;
+    auth.username     = data.username;
+    auth.tokens       = data.tokens;
+    auth.isGuest      = false;
+    mp.myName         = data.username;
+    localStorage.setItem('pignusDiceSession', data.sessionToken);
+    authShowLobby();
+  } catch { authShowError('Cannot connect to server'); }
+});
+document.getElementById('loginPassword').addEventListener('keypress', e => {
+  if (e.key === 'Enter') document.getElementById('loginBtn').click();
+});
+
+// Register
+document.getElementById('registerBtn').addEventListener('click', async () => {
+  const username = document.getElementById('regUsername').value.trim();
+  const password = document.getElementById('regPassword').value;
+  if (!username || !password) { authShowError('Enter a username and password'); return; }
+  try {
+    const res  = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) { authShowError(data.error || 'Registration failed'); return; }
+    auth.sessionToken = data.sessionToken;
+    auth.username     = data.username;
+    auth.tokens       = data.tokens;
+    auth.isGuest      = false;
+    mp.myName         = data.username;
+    localStorage.setItem('pignusDiceSession', data.sessionToken);
+    authShowLobby();
+  } catch { authShowError('Cannot connect to server'); }
+});
+document.getElementById('regPassword').addEventListener('keypress', e => {
+  if (e.key === 'Enter') document.getElementById('registerBtn').click();
+});
+
+// Guest
+document.getElementById('guestBtn').addEventListener('click', () => {
+  auth.isGuest      = true;
+  auth.username     = null;
+  auth.tokens       = null;
+  auth.sessionToken = null;
+  authShowLobby();
+});
 
 // ── Screen helpers ────────────────────────────────────────────────────────────
 function showScreen(id) {
@@ -32,9 +190,7 @@ function lobbyError(msg) {
   el.style.display = msg ? 'block' : 'none';
 }
 
-// Lobby is the only entry point — no mode select needed
-
-// ── Create / Join buttons ────────────────────────────────────────────────────
+// ── Create / Join buttons ─────────────────────────────────────────────────────
 document.getElementById('lobbyJoinBtn').addEventListener('click', () => {
   const row = document.getElementById('lobbyJoinRow');
   row.style.display = row.style.display === 'none' ? 'block' : 'none';
@@ -42,21 +198,27 @@ document.getElementById('lobbyJoinBtn').addEventListener('click', () => {
 
 document.getElementById('lobbyCreateBtn').addEventListener('click', () => {
   if (mp.connecting) return;
-  mp.myName    = document.getElementById('lobbyName').value.trim() || 'Player';
-  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || 'ws://pignusdice.com';
+  mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
+  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || _wsDefault;
   connectWS(() => {
-    mp.ws.send(JSON.stringify({ type: 'create_room', name: mp.myName, startTokens: 500 }));
+    mp.ws.send(JSON.stringify({
+      type: 'create_room', name: mp.myName,
+      startTokens: 500, sessionToken: auth.sessionToken || null,
+    }));
   });
 });
 
 document.getElementById('lobbyJoinConfirmBtn').addEventListener('click', () => {
   if (mp.connecting) return;
-  mp.myName    = document.getElementById('lobbyName').value.trim() || 'Player';
-  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || 'ws://pignusdice.com';
+  mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
+  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || _wsDefault;
   const code   = document.getElementById('lobbyCode').value.trim().toUpperCase();
   if (!code) { lobbyError('Enter a room code'); return; }
   connectWS(() => {
-    mp.ws.send(JSON.stringify({ type: 'join_room', code, name: mp.myName }));
+    mp.ws.send(JSON.stringify({
+      type: 'join_room', code, name: mp.myName,
+      sessionToken: auth.sessionToken || null,
+    }));
   });
 });
 
@@ -71,7 +233,7 @@ document.getElementById('lobbyBackBtn').addEventListener('click', () => {
   lobbyError('');
 });
 
-// ── WebSocket connection ─────────────────────────────────────────────────────
+// ── WebSocket connection ──────────────────────────────────────────────────────
 function setLobbyButtons(disabled) {
   ['lobbyCreateBtn','lobbyJoinConfirmBtn'].forEach(id => {
     const el = document.getElementById(id);
@@ -85,7 +247,6 @@ function connectWS(onOpen) {
   lobbyError('');
   setLobbyButtons(true);
 
-  // Kill any existing socket cleanly without triggering its onclose
   if (mp.ws) {
     mp.ws.onclose = null;
     mp.ws.onerror = null;
@@ -106,7 +267,7 @@ function connectWS(onOpen) {
   mp.ws = socket;
 
   socket.onopen = () => {
-    if (mp.ws !== socket) return; // superseded
+    if (mp.ws !== socket) return;
     mp.connected  = true;
     mp.connecting = false;
     setLobbyButtons(false);
@@ -153,21 +314,21 @@ function disconnectWS() {
   setLobbyButtons(false);
 }
 
-// ── Server message handler ───────────────────────────────────────────────────
+// ── Server message handler ────────────────────────────────────────────────────
 function handleServerMsg(msg) {
   switch (msg.type) {
 
     case 'room_created':
-      mp.myId    = msg.playerId;
+      mp.myId     = msg.playerId;
       mp.roomCode = msg.code;
-      mp.isHost  = true;
+      mp.isHost   = true;
       showLobbyWaiting(msg.code, true);
       break;
 
     case 'room_joined':
-      mp.myId    = msg.playerId;
+      mp.myId     = msg.playerId;
       mp.roomCode = msg.code;
-      mp.isHost  = false;
+      mp.isHost   = false;
       showLobbyWaiting(msg.code, false);
       break;
 
@@ -176,12 +337,12 @@ function handleServerMsg(msg) {
       if (mp.isHost) {
         document.getElementById('lobbyStatusMsg').textContent =
           msg.players.length >= 2
-            ? `${msg.players.length} players ready — you can start!`
+            ? msg.players.length + ' players ready — you can start!'
             : 'Waiting for players to join...';
         document.getElementById('lobbyStartBtn').style.display = msg.players.length >= 2 ? '' : 'none';
       } else {
         document.getElementById('lobbyStatusMsg').textContent =
-          `${msg.players.length} player${msg.players.length>1?'s':''} in room — waiting for host to start...`;
+          msg.players.length + ' player' + (msg.players.length > 1 ? 's' : '') + ' in room — waiting for host to start...';
       }
       break;
 
@@ -195,7 +356,7 @@ function handleServerMsg(msg) {
       document.getElementById('gameScreen').style.display   = 'block';
       document.getElementById('resultsBar').style.display   = 'none';
       document.getElementById('resultsOverlay').style.display = 'none';
-      showMsg(`Round ${msg.round} started! Ante collected.`);
+      showMsg('Round ' + msg.round + ' started! Ante collected.');
       break;
 
     case 'snapshot':
@@ -205,10 +366,11 @@ function handleServerMsg(msg) {
 
     case 'your_turn':
       if (msg.playerId === mp.myId) {
-        showMsg(`Your turn! Roll the dice.`);
+        showMsg('Your turn! Roll the dice.');
         setOnlineButtonsEnabled(true);
+        if (window.SFX) window.SFX.yourTurn();
       } else {
-        showMsg(`Waiting for ${msg.playerName} to play...`);
+        showMsg('Waiting for ' + msg.playerName + ' to play...');
         setOnlineButtonsEnabled(false);
       }
       break;
@@ -227,6 +389,7 @@ function handleServerMsg(msg) {
     case 'phase_change':
       if (msg.phase === 'roll2') {
         showMsg('⚔️ PHASE 2 — Second Roll! You must lock at least 1 die before ending your turn.');
+        if (window.SFX) window.SFX.phase2();
       }
       break;
 
@@ -239,7 +402,7 @@ function handleServerMsg(msg) {
       break;
 
     case 'player_left':
-      showMsg(`${msg.playerName} disconnected.`, 'warn');
+      showMsg(msg.playerName + ' disconnected.', 'warn');
       break;
 
     case 'error':
@@ -248,7 +411,7 @@ function handleServerMsg(msg) {
   }
 }
 
-// ── Lobby UI ─────────────────────────────────────────────────────────────────
+// ── Lobby UI ──────────────────────────────────────────────────────────────────
 function showLobbyWaiting(code, isHost) {
   document.getElementById('lobbyConnect').style.display = 'none';
   document.getElementById('lobbyWaiting').style.display = 'block';
@@ -265,12 +428,11 @@ function renderLobbyPlayers(players) {
   players.forEach((p, i) => {
     const el = document.createElement('div');
     el.className = 'lobby-player-entry';
-    el.innerHTML = `
-      <span class="online-indicator"></span>
-      <span class="lobby-player-dot" style="background:${COLORS[i%COLORS.length]}"></span>
-      <span class="lobby-player-name">${p.name}</span>
-      <span class="lobby-player-tag">${p.id === mp.myId ? '(You)' : ''}</span>
-    `;
+    el.innerHTML =
+      '<span class="online-indicator"></span>' +
+      '<span class="lobby-player-dot" style="background:' + COLORS[i % COLORS.length] + '"></span>' +
+      '<span class="lobby-player-name">' + p.name + '</span>' +
+      '<span class="lobby-player-tag">' + (p.id === mp.myId ? '(You)' : '') + '</span>';
     list.appendChild(el);
   });
 }
@@ -280,11 +442,9 @@ function renderOnlineGame(snap) {
   const me = snap.players.find(p => p.id === mp.myId);
   if (!me) return;
 
-  // Update pot display
   document.getElementById('potAmount').textContent = snap.pot;
-  document.getElementById('roundInfo').textContent = `Round ${snap.round}`;
+  document.getElementById('roundInfo').textContent = 'Round ' + snap.round;
 
-  // Render players strip
   const strip = document.getElementById('playersStrip');
   strip.innerHTML = '';
   snap.players.forEach(p => {
@@ -293,59 +453,58 @@ function renderOnlineGame(snap) {
       (p.id === snap.turnPlayerId ? ' active-turn' : '') +
       (p.folded  ? ' folded'      : '') +
       (p.tokens <= 0 ? ' eliminated' : '');
-    tab.innerHTML = `
-      <div class="tab-name" style="color:${p.color}">${p.name}${p.id===mp.myId?' (You)':''}</div>
-      <div class="tab-tokens">💰 ${p.tokens}</div>
-      <div class="tab-score">${p.finalScore>0?'✅ '+p.finalScore:p.folded?'❌':p.rollsUsed>0?'🎲...':'—'}</div>
-      <div class="turn-arrow">▼</div>`;
+    tab.innerHTML =
+      '<div class="tab-name" style="color:' + p.color + '">' + p.name + (p.id === mp.myId ? ' (You)' : '') + '</div>' +
+      '<div class="tab-tokens">💰 ' + p.tokens + '</div>' +
+      '<div class="tab-score">' + (p.finalScore > 0 ? '✅ ' + p.finalScore : p.folded ? '❌' : p.rollsUsed > 0 ? '🎲...' : '—') + '</div>' +
+      '<div class="turn-arrow">▼</div>';
     strip.appendChild(tab);
   });
 
-  // Render opponent cards
   const grid = document.getElementById('opponentsGrid');
   grid.innerHTML = '';
   snap.players.filter(p => p.id !== mp.myId).forEach(p => {
     const card = document.createElement('div');
-    card.className = `opp-card color-${p.colorIdx}${p.folded?' folded':''}${p.finalScore>0?' winner':''}`;
+    card.className = 'opp-card color-' + p.colorIdx + (p.folded ? ' folded' : '') + (p.finalScore > 0 ? ' winner' : '');
     const allDice = [...p.qualifyHand, ...p.scoringHand];
     let diceHTML = '';
     for (let j = 0; j < 6; j++) {
-      const v = allDice[j];
+      const v   = allDice[j];
       const isQ = j < p.qualifyHand.length;
       const tmp = document.createElement('div');
-      setDieImg(tmp, v||0, false, isQ && !!v);
-      diceHTML += `<div class="small-die" style="background-image:${tmp.style.backgroundImage}"></div>`;
+      setDieImg(tmp, v || 0, false, isQ && !!v);
+      diceHTML += '<div class="small-die" style="background-image:' + tmp.style.backgroundImage + '"></div>';
     }
-    card.innerHTML = `
-      <div class="opp-card-header">
-        <div class="opp-dot" style="background:${p.color}"></div>
-        <div class="opp-name">${p.name}</div>
-      </div>
-      <div class="opp-score-line">🏆 ${p.finalScore||0}</div>
-      <div class="opp-dice-row">${diceHTML}</div>
-      <div class="opp-status ${p.finalScore>0?'qualified':'no14'}">${p.folded?'❌ Folded':p.finalScore>0?'✅ Qualified':p.rollsUsed>0?'⚠ Playing...':'⏳ Waiting'}</div>`;
+    card.innerHTML =
+      '<div class="opp-card-header">' +
+        '<div class="opp-dot" style="background:' + p.color + '"></div>' +
+        '<div class="opp-name">' + p.name + '</div>' +
+      '</div>' +
+      '<div class="opp-score-line">🏆 ' + (p.finalScore || 0) + '</div>' +
+      '<div class="opp-dice-row">' + diceHTML + '</div>' +
+      '<div class="opp-status ' + (p.finalScore > 0 ? 'qualified' : 'no14') + '">' +
+        (p.folded ? '❌ Folded' : p.finalScore > 0 ? '✅ Qualified' : p.rollsUsed > 0 ? '⚠ Playing...' : '⏳ Waiting') +
+      '</div>';
     grid.appendChild(card);
   });
 
-  // Render active board (my board)
   renderOnlineMyBoard(me, snap);
 }
 
 function renderOnlineMyBoard(me, snap) {
   const isMyTurn = snap.turnPlayerId === mp.myId;
-  document.getElementById('activeName').textContent      = `${me.name.toUpperCase()} (YOU)`;
+  document.getElementById('activeName').textContent      = me.name.toUpperCase() + ' (YOU)';
   document.getElementById('activeTokensVal').textContent = me.tokens;
-  document.getElementById('anteRollTag').textContent     = `ANTE: ${ANTE} | ROLL COST: ${ROLL_COST}`;
-  document.getElementById('rollCounter').textContent     = `rolls: ${me.rollsUsed}/${MAX_ROLLS}`;
-  document.getElementById('rollSavePill').textContent    = me.rollsUsed===0 ? '(perfect save!)' : '';
-  document.getElementById('rollCostPill').textContent    = `Cost ${ROLL_COST}`;
+  document.getElementById('anteRollTag').textContent     = 'ANTE: ' + ANTE + ' | ROLL COST: ' + ROLL_COST;
+  document.getElementById('rollCounter').textContent     = 'rolls: ' + me.rollsUsed + '/' + MAX_ROLLS;
+  document.getElementById('rollSavePill').textContent    = me.rollsUsed === 0 ? '(perfect save!)' : '';
+  document.getElementById('rollCostPill').textContent    = 'Cost ' + ROLL_COST;
   const isRoll2 = snap.phase === 'roll2';
   document.getElementById('lockHint').style.display = me.mustLockBeforeRoll ? '' : 'none';
   document.getElementById('rollZoneLabel').innerHTML = isRoll2
-    ? `<span class="zone-icon">🎲</span> PHASE 2 — SECOND ROLL (lock ≥1 die to end turn) | rolls: ${me.rollsUsed}/${MAX_ROLLS} | Cost: ${ROLL_COST}`
-    : `<span class="zone-icon">🎲</span> CURRENT ROLL (rolls: ${me.rollsUsed}/${MAX_ROLLS}) | Cost: ${ROLL_COST}`;
+    ? '<span class="zone-icon">🎲</span> PHASE 2 — SECOND ROLL (lock ≥1 die to end turn) | rolls: ' + me.rollsUsed + '/' + MAX_ROLLS + ' | Cost: ' + ROLL_COST
+    : '<span class="zone-icon">🎲</span> CURRENT ROLL (rolls: ' + me.rollsUsed + '/' + MAX_ROLLS + ') | Cost: ' + ROLL_COST;
 
-  // Qualify row
   const qRow = document.getElementById('qualifyRow');
   qRow.innerHTML = '';
   if (!me.qualifyHand.length) {
@@ -357,7 +516,6 @@ function renderOnlineMyBoard(me, snap) {
     });
   }
 
-  // Scoring row
   const sRow = document.getElementById('scoringRow');
   sRow.innerHTML = '';
   if (!me.scoringHand.length) {
@@ -369,17 +527,15 @@ function renderOnlineMyBoard(me, snap) {
     });
     const qc = me.qualifyHand.includes(1) && me.qualifyHand.includes(4);
     if (qc)
-      sRow.insertAdjacentHTML('beforeend',`<span class="zone-hint" style="font-size:0.85rem;margin-left:8px">= ${me.scoringHand.reduce((a,b)=>a+b,0)}</span>`);
+      sRow.insertAdjacentHTML('beforeend', '<span class="zone-hint" style="font-size:0.85rem;margin-left:8px">= ' + me.scoringHand.reduce((a,b) => a+b, 0) + '</span>');
   }
 
-  // Roll row — server has assigned currentDice; we render them with selection state
   const rRow = document.getElementById('rollRow');
   rRow.innerHTML = '';
   if (!me.currentDice || !me.currentDice.length) {
-    rRow.innerHTML = `<span class="zone-hint">⚡ ${me.rollsUsed===0?'Press ROLL (cost '+ROLL_COST+')':'Press ROLL DICE for next roll'}</span>`;
+    rRow.innerHTML = '<span class="zone-hint">⚡ ' + (me.rollsUsed === 0 ? 'Press ROLL (cost ' + ROLL_COST + ')' : 'Press ROLL DICE for next roll') + '</span>';
     document.getElementById('lockHintLine').style.display = 'none';
   } else {
-    // Track local selection separate from server state
     if (!window._onlineSelected) window._onlineSelected = new Set();
     me.currentDice.forEach((v, i) => {
       const d   = document.createElement('div');
@@ -394,26 +550,24 @@ function renderOnlineMyBoard(me, snap) {
         document.getElementById('lockBtn').disabled = !window._onlineSelected.size || !isMyTurn;
       };
       d.addEventListener('click', toggle);
-      d.addEventListener('touchend', toggle, {passive:false});
+      d.addEventListener('touchend', toggle, { passive: false });
       rRow.appendChild(d);
     });
     document.getElementById('lockHintLine').style.display = 'block';
   }
 
   const midOpen  = document.getElementById('midRollBetting').style.display === 'block';
-  const handFull = me.qualifyHand.includes(1) && me.qualifyHand.includes(4) && me.scoringHand.length===4;
-  // In roll2, player must lock ≥1 die before ending turn (unless hand was already full from roll1)
+  const handFull = me.qualifyHand.includes(1) && me.qualifyHand.includes(4) && me.scoringHand.length === 4;
   const canEndRoll2 = !isRoll2 || handFull || me.lockedInRoll2;
-  document.getElementById('rollBtn').disabled    = !isMyTurn || midOpen || me.rollsUsed>=MAX_ROLLS || me.tokens<ROLL_COST || handFull || !!me.mustLockBeforeRoll;
+  document.getElementById('rollBtn').disabled    = !isMyTurn || midOpen || me.rollsUsed >= MAX_ROLLS || me.tokens < ROLL_COST || handFull || !!me.mustLockBeforeRoll;
   document.getElementById('lockBtn').disabled    = !isMyTurn || midOpen || !(window._onlineSelected && window._onlineSelected.size);
-  document.getElementById('endTurnBtn').disabled = !isMyTurn || midOpen || (!handFull && me.rollsUsed===0) || !canEndRoll2;
-  // Reset selection when a new snapshot arrives and dice changed
+  document.getElementById('endTurnBtn').disabled = !isMyTurn || midOpen || (!handFull && me.rollsUsed === 0) || !canEndRoll2;
   if (!me.currentDice || me.currentDice.length === 0) window._onlineSelected = new Set();
 }
 
 function setOnlineButtonsEnabled(enabled) {
   document.getElementById('rollBtn').disabled    = !enabled;
-  document.getElementById('lockBtn').disabled    = true; // needs selection
+  document.getElementById('lockBtn').disabled    = true;
   document.getElementById('endTurnBtn').disabled = !enabled;
 }
 
@@ -421,7 +575,7 @@ function setOnlineButtonsEnabled(enabled) {
 function showOnlineBetting(currentBet) {
   const me = mp.gameState ? mp.gameState.players.find(p => p.id === mp.myId) : null;
   if (!me) return;
-  const callAmt = Math.max(0, currentBet - (me.roundBet||0));
+  const callAmt = Math.max(0, currentBet - (me.roundBet || 0));
 
   document.getElementById('bettingPanel').style.display = 'block';
   document.getElementById('activeBoard').style.display  = 'none';
@@ -431,36 +585,36 @@ function showOnlineBetting(currentBet) {
   document.getElementById('betDisplay').textContent = betAmt;
 
   document.getElementById('betMinus').onclick = () => {
-    betAmt = Math.max(10, betAmt-10);
+    betAmt = Math.max(10, betAmt - 10);
     document.getElementById('betDisplay').textContent = betAmt;
   };
   document.getElementById('betPlus').onclick = () => {
-    betAmt = Math.min(me.tokens, betAmt+10);
+    betAmt = Math.min(me.tokens, betAmt + 10);
     document.getElementById('betDisplay').textContent = betAmt;
   };
 
   const pre = document.getElementById('betPresets');
   pre.innerHTML = '';
-  [10,25,50,100].forEach(v => {
+  [10, 25, 50, 100].forEach(v => {
     if (v > me.tokens) return;
     const b = document.createElement('button');
-    b.className='preset-btn'; b.textContent=v;
-    b.onclick=()=>{ betAmt=v; document.getElementById('betDisplay').textContent=betAmt; };
+    b.className = 'preset-btn'; b.textContent = v;
+    b.onclick = () => { betAmt = v; document.getElementById('betDisplay').textContent = betAmt; };
     pre.appendChild(b);
   });
 
-  document.getElementById('callBtn').textContent = callAmt > 0 ? `CALL (−${callAmt})` : 'CALL';
+  document.getElementById('callBtn').textContent = callAmt > 0 ? 'CALL (−' + callAmt + ')' : 'CALL';
   document.getElementById('checkBtn').onclick = () => {
-    if (callAmt>0){showMsg('Cannot check — must call or fold!','error');return;}
-    sendBet('check',0);
+    if (callAmt > 0) { showMsg('Cannot check — must call or fold!', 'error'); return; }
+    sendBet('check', 0);
   };
-  document.getElementById('callBtn').onclick  = () => sendBet('call',  callAmt);
-  document.getElementById('raiseBtn').onclick = () => sendBet('raise', betAmt);
-  document.getElementById('foldBtn').onclick  = () => sendBet('fold',  0);
+  document.getElementById('callBtn').onclick  = () => { if (window.SFX) window.SFX.bet(); sendBet('call',  callAmt); };
+  document.getElementById('raiseBtn').onclick = () => { if (window.SFX) window.SFX.bet(); sendBet('raise', betAmt); };
+  document.getElementById('foldBtn').onclick  = () => sendBet('fold', 0);
 }
 
 function sendBet(action, amount) {
-  if (mp.ws) mp.ws.send(JSON.stringify({ type:'bet', action, amount }));
+  if (mp.ws) mp.ws.send(JSON.stringify({ type: 'bet', action, amount }));
 }
 
 // ── Online results ────────────────────────────────────────────────────────────
@@ -470,51 +624,74 @@ function renderOnlineResults(msg) {
   const winEl  = document.getElementById('resultsBarWinner');
   scores.innerHTML = '';
   msg.players.forEach(p => {
-    const pill = document.createElement('div');
+    const pill  = document.createElement('div');
     pill.className = 'results-pill';
     const score = p.folded ? '—' : !p.qualified ? '—' : p.finalScore;
-    pill.innerHTML = `<span style="color:${p.color||'#fff'}">●</span> ${p.name}${p.id===mp.myId?' (You)':''}: ${score}`;
+    pill.innerHTML = '<span style="color:' + (p.color || '#fff') + '">●</span> ' + p.name + (p.id === mp.myId ? ' (You)' : '') + ': ' + score;
     scores.appendChild(pill);
   });
   const winners = msg.players.filter(p => msg.winners.includes(p.id));
   if (winners.length) {
     const w = winners[0];
-    winEl.innerHTML = `👑 WINNER: ${w.name} 👑<br>Score: ${w.finalScore}`;
+    winEl.innerHTML = '👑 WINNER: ' + w.name + ' 👑<br>Score: ' + w.finalScore;
   } else {
     winEl.textContent = 'No winner this round';
   }
   bar.style.display = 'block';
   showMsg('Round over! Next round starting in 5 seconds...');
+
+  // Sound feedback
+  const iWon = msg.winners.includes(mp.myId);
+  if (window.SFX) {
+    if (iWon) window.SFX.roundWin();
+    else      window.SFX.roundLose();
+  }
+
+  // Update account token balance
+  const myPlayer = msg.players.find(p => p.id === mp.myId);
+  if (myPlayer && auth.sessionToken) {
+    auth.tokens = myPlayer.tokens;
+    updateAccountBadge();
+  }
 }
 
 function renderOnlineGameOver(msg) {
-  const sorted = [...msg.players].sort((a,b) => b.tokens - a.tokens);
+  const sorted = [...msg.players].sort((a, b) => b.tokens - a.tokens);
   const title  = document.getElementById('resultsTitle');
   const body   = document.getElementById('resultsBody');
   const btn    = document.getElementById('nextRoundBtn');
   title.textContent = '🎮 GAME OVER';
-  body.innerHTML = sorted.map(p => `
-    <div class="score-row ${p.tokens===sorted[0].tokens?'winner-row':''}">
-      <div class="score-name">${p.name}${p.id===mp.myId?' (You)':''}</div>
-      <div class="score-val">${p.tokens}</div>
-    </div>`).join('');
+  body.innerHTML = sorted.map(p =>
+    '<div class="score-row ' + (p.tokens === sorted[0].tokens ? 'winner-row' : '') + '">' +
+      '<div class="score-name">' + p.name + (p.id === mp.myId ? ' (You)' : '') + '</div>' +
+      '<div class="score-val">' + p.tokens + '</div>' +
+    '</div>'
+  ).join('');
   btn.textContent = '🔄 NEW GAME';
   btn.onclick = () => { disconnectWS(); location.reload(); };
   document.getElementById('resultsOverlay').style.display = 'flex';
+
+  if (window.SFX && sorted[0].id === mp.myId) window.SFX.gameWin();
+
+  // Update saved balance
+  const me = msg.players.find(p => p.id === mp.myId);
+  if (me && auth.sessionToken) {
+    auth.tokens = me.tokens;
+    updateAccountBadge();
+  }
 }
 
-// ── Wire online roll/lock/end to server ──────────────────────────────────────
-// Override local handlers when in online mode
+// ── Wire online roll/lock/end to server ───────────────────────────────────────
 function isOnlineMode() { return mp.ws && mp.connected; }
 
-// Wrap the existing button handlers to route to server when online
-const _origRollBtn  = document.getElementById('rollBtn');
-const _origLockBtn  = document.getElementById('lockBtn');
-const _origEndBtn   = document.getElementById('endTurnBtn');
+const _origRollBtn = document.getElementById('rollBtn');
+const _origLockBtn = document.getElementById('lockBtn');
+const _origEndBtn  = document.getElementById('endTurnBtn');
 
 _origRollBtn.addEventListener('click', () => {
-  if (!isOnlineMode()) return; // local handler in game.js takes over
+  if (!isOnlineMode()) return;
   mp.ws.send(JSON.stringify({ type: 'roll' }));
+  if (window.SFX) window.SFX.roll();
 });
 
 _origLockBtn.addEventListener('click', () => {
@@ -523,6 +700,7 @@ _origLockBtn.addEventListener('click', () => {
   if (!sel.length) { showMsg('Select at least one die!', 'error'); return; }
   mp.ws.send(JSON.stringify({ type: 'lock', selectedIdx: sel }));
   window._onlineSelected = new Set();
+  if (window.SFX) window.SFX.lock();
 });
 
 _origEndBtn.addEventListener('click', () => {
@@ -530,4 +708,4 @@ _origEndBtn.addEventListener('click', () => {
   mp.ws.send(JSON.stringify({ type: 'end_turn' }));
 });
 
-// ANTE, ROLL_COST, MAX_ROLLS, COLORS defined in game.js (loaded first)
+// ANTE, ROLL_COST, MAX_ROLLS, COLORS defined in game.js (loaded before this file)
