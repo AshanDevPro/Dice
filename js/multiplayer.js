@@ -11,7 +11,7 @@ let mp = {
   myId:         null,
   roomCode:     null,
   isHost:       false,
-  serverUrl:    'ws://pignusdice.com',
+  serverUrl:    'wss://pignusdice.com',
   myName:       'Player',
   gameState:    null,
   connected:    false,
