@@ -221,10 +221,11 @@
         </div>
 
         <div id="lobbyWaiting" style="display:none;">
-          <div style="text-align:center;padding:20px 0;">
+          <div style="text-align:center;padding:20px 0 10px;">
             <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--muted);letter-spacing:0.14em;margin-bottom:6px;">ROOM CODE</div>
             <div id="lobbyRoomCode" style="font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:var(--gold-bright);letter-spacing:0.3em;text-shadow:0 0 20px rgba(255,209,102,0.5);"></div>
-            <div style="font-size:0.8rem;color:var(--muted);margin-top:4px;">Share this code with friends</div>
+            <button class="pill-btn pill-btn-lock" id="shareRoomBtn" style="margin-top:10px;width:100%;" onclick="shareRoomLink()">📤 SHARE ROOM LINK</button>
+            <div id="shareFeedback" style="font-size:0.75rem;color:#06d6a0;margin-top:5px;min-height:16px;"></div>
           </div>
           <div id="lobbyPlayerList" style="margin-bottom:16px;"></div>
           <div id="lobbyStatusMsg" style="text-align:center;color:var(--muted);font-size:0.85rem;margin-bottom:12px;">Waiting for players...</div>

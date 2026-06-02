@@ -62,6 +62,13 @@ function authShowLobby() {
   updateAccountBadge();
   // Set server URL
   document.getElementById('lobbyServer').value = _wsDefault;
+  // Auto-fill room code if arriving from a share link (?room=XXXX)
+  const roomParam = new URLSearchParams(window.location.search).get('room');
+  if (roomParam) {
+    const codeEl = document.getElementById('lobbyCode');
+    codeEl.value = roomParam.toUpperCase();
+    document.getElementById('lobbyJoinRow').style.display = 'block';
+  }
 }
 
 function updateAccountBadge() {
@@ -394,7 +401,7 @@ function handleServerMsg(msg) {
 
     case 'bet_action_needed':
       if (msg.playerId === mp.myId) {
-        showOnlineBetting(msg.currentBet);
+        showOnlineBetting(msg.currentBet, msg.bettingPhase);
       }
       break;
 
@@ -404,8 +411,8 @@ function handleServerMsg(msg) {
       break;
 
     case 'phase_change':
-      if (msg.phase === 'roll2') {
-        showMsg('⚔️ PHASE 2 — Second Roll! You must lock at least 1 die before ending your turn.');
+      if (msg.subRound >= 2) {
+        showMsg('⚔️ SUB-ROUND ' + msg.subRound + ' — Roll your remaining dice!');
         if (window.SFX) window.SFX.phase2();
       }
       break;
@@ -434,8 +441,30 @@ function showLobbyWaiting(code, isHost) {
   document.getElementById('lobbyWaiting').style.display = 'block';
   document.getElementById('lobbyRoomCode').textContent  = code;
   document.getElementById('lobbyStartBtn').style.display = 'none';
+  document.getElementById('shareFeedback').textContent  = '';
   document.getElementById('lobbyStatusMsg').textContent =
     isHost ? 'You are the host. Waiting for players to join...' : 'Joined! Waiting for host to start...';
+}
+
+function shareRoomLink() {
+  const code = mp.roomCode;
+  if (!code) return;
+  const base = window.location.href.split('?')[0];
+  const url  = base + '?room=' + code;
+  const text = 'Join my PignusDice game! Room code: ' + code;
+  const fb   = document.getElementById('shareFeedback');
+  if (navigator.share) {
+    navigator.share({ title: 'PignusDice', text, url }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => {
+      fb.textContent = '✅ Link copied to clipboard!';
+      setTimeout(() => { fb.textContent = ''; }, 3000);
+    }).catch(() => {
+      fb.textContent = 'Link: ' + url;
+    });
+  } else {
+    fb.textContent = 'Code: ' + code;
+  }
 }
 
 function renderLobbyPlayers(players) {
@@ -516,11 +545,11 @@ function renderOnlineMyBoard(me, snap) {
   document.getElementById('rollCounter').textContent     = 'rolls: ' + me.rollsUsed + '/' + MAX_ROLLS;
   document.getElementById('rollSavePill').textContent    = me.rollsUsed === 0 ? '(perfect save!)' : '';
   document.getElementById('rollCostPill').textContent    = 'Cost ' + ROLL_COST;
-  const isRoll2 = snap.phase === 'roll2';
+  const subRound = snap.subRound || 1;
   document.getElementById('lockHint').style.display = me.mustLockBeforeRoll ? '' : 'none';
-  document.getElementById('rollZoneLabel').innerHTML = isRoll2
-    ? '<span class="zone-icon">🎲</span> PHASE 2 — SECOND ROLL (lock ≥1 die to end turn) | rolls: ' + me.rollsUsed + '/' + MAX_ROLLS + ' | Cost: ' + ROLL_COST
-    : '<span class="zone-icon">🎲</span> CURRENT ROLL (rolls: ' + me.rollsUsed + '/' + MAX_ROLLS + ') | Cost: ' + ROLL_COST;
+  document.getElementById('rollZoneLabel').innerHTML = subRound > 1
+    ? '<span class="zone-icon">🎲</span> SUB-ROUND ' + subRound + ' — Roll remaining dice, lock ≥1, then bet | Cost: ' + ROLL_COST
+    : '<span class="zone-icon">🎲</span> ROUND ' + subRound + ' — Roll, select dice to keep, then bet | Cost: ' + ROLL_COST;
 
   const qRow = document.getElementById('qualifyRow');
   qRow.innerHTML = '';
@@ -573,12 +602,18 @@ function renderOnlineMyBoard(me, snap) {
     document.getElementById('lockHintLine').style.display = 'block';
   }
 
-  const midOpen  = document.getElementById('midRollBetting').style.display === 'block';
-  const handFull = me.qualifyHand.includes(1) && me.qualifyHand.includes(4) && me.scoringHand.length === 4;
-  const canEndRoll2 = !isRoll2 || handFull || me.lockedInRoll2;
-  document.getElementById('rollBtn').disabled    = !isMyTurn || midOpen || me.rollsUsed >= MAX_ROLLS || me.tokens < ROLL_COST || handFull || !!me.mustLockBeforeRoll;
+  const midOpen     = document.getElementById('midRollBetting').style.display === 'block';
+  const handFull    = me.qualifyHand.includes(1) && me.qualifyHand.includes(4) && me.scoringHand.length === 4;
+  const scoringFull = me.scoringHand.length === 4;
+  // ONE roll per turn — blocked after first roll, also blocked when scoring is full or hand full
+  const rollBlocked = !isMyTurn || midOpen || me.rollsUsed >= 1 || me.tokens < ROLL_COST
+                    || handFull || !!me.mustLockBeforeRoll || scoringFull;
+  // End turn: must roll first (unless scoring/hand full), must lock if rolled but not locked
+  const mustRollFirst    = !handFull && !scoringFull && me.rollsUsed === 0;
+  const mustLockAfterRoll = me.rollsUsed > 0 && !!me.mustLockBeforeRoll;
+  document.getElementById('rollBtn').disabled    = rollBlocked;
   document.getElementById('lockBtn').disabled    = !isMyTurn || midOpen || !(window._onlineSelected && window._onlineSelected.size);
-  document.getElementById('endTurnBtn').disabled = !isMyTurn || midOpen || (!handFull && me.rollsUsed === 0) || !canEndRoll2;
+  document.getElementById('endTurnBtn').disabled = !isMyTurn || midOpen || mustRollFirst || mustLockAfterRoll;
   if (!me.currentDice || me.currentDice.length === 0) window._onlineSelected = new Set();
 }
 
@@ -589,14 +624,15 @@ function setOnlineButtonsEnabled(enabled) {
 }
 
 // ── Online betting ────────────────────────────────────────────────────────────
-function showOnlineBetting(currentBet) {
+function showOnlineBetting(currentBet, bettingPhase) {
   const me = mp.gameState ? mp.gameState.players.find(p => p.id === mp.myId) : null;
   if (!me) return;
-  const callAmt = Math.max(0, currentBet - (me.roundBet || 0));
+  const callAmt    = Math.max(0, currentBet - (me.roundBet || 0));
+  const isAfterRoll = bettingPhase === 'after_roll';
 
   document.getElementById('bettingPanel').style.display = 'block';
   document.getElementById('activeBoard').style.display  = 'none';
-  document.getElementById('bettingPlayerName').textContent = 'Your Bet';
+  document.getElementById('bettingPlayerName').textContent = isAfterRoll ? 'Place Your Bet' : 'Your Action';
 
   let betAmt = Math.max(10, callAmt);
   document.getElementById('betDisplay').textContent = betAmt;
@@ -620,11 +656,14 @@ function showOnlineBetting(currentBet) {
     pre.appendChild(b);
   });
 
-  document.getElementById('callBtn').textContent = callAmt > 0 ? 'CALL (−' + callAmt + ')' : 'CALL';
-  document.getElementById('checkBtn').onclick = () => {
-    if (callAmt > 0) { showMsg('Cannot check — must call or fold!', 'error'); return; }
-    sendBet('check', 0);
-  };
+  // After rolling: only CHECK or RAISE (no fold/call — player already committed)
+  // Before rolling: CALL / RAISE / FOLD (or CHECK if nothing to call)
+  document.getElementById('foldBtn').style.display  = isAfterRoll ? 'none' : '';
+  document.getElementById('callBtn').style.display  = (!isAfterRoll && callAmt > 0) ? '' : 'none';
+  document.getElementById('checkBtn').style.display = (isAfterRoll || callAmt === 0) ? '' : 'none';
+  document.getElementById('callBtn').textContent    = 'CALL (−' + callAmt + ')';
+
+  document.getElementById('checkBtn').onclick = () => { if (window.SFX) window.SFX.bet(); sendBet('check', 0); };
   document.getElementById('callBtn').onclick  = () => { if (window.SFX) window.SFX.bet(); sendBet('call',  callAmt); };
   document.getElementById('raiseBtn').onclick = () => { if (window.SFX) window.SFX.bet(); sendBet('raise', betAmt); };
   document.getElementById('foldBtn').onclick  = () => sendBet('fold', 0);
