@@ -66,13 +66,30 @@ function authShowLobby() {
 
 function updateAccountBadge() {
   const badge = document.getElementById('accountBadge');
+  const text  = document.getElementById('accountBadgeText');
   if (!badge) return;
   if (auth.username) {
-    badge.textContent = '👤 ' + auth.username + ' — 💰 ' + (auth.tokens !== null ? auth.tokens : '—') + ' tokens';
-    badge.style.display = 'block';
+    if (text) text.textContent = '👤 ' + auth.username + ' — 💰 ' + (auth.tokens !== null ? auth.tokens : '—') + ' tokens';
+    badge.style.display = 'flex';
+    badge.style.alignItems = 'center';
+    badge.style.justifyContent = 'center';
   } else {
     badge.style.display = 'none';
   }
+}
+
+function authLogout() {
+  auth.sessionToken = null;
+  auth.username     = null;
+  auth.tokens       = null;
+  auth.isGuest      = false;
+  localStorage.removeItem('pignusDiceSession');
+  disconnectWS();
+  document.getElementById('lobbyScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display  = '';
+  // Reset auth form fields
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPassword').value = '';
 }
 
 // Check saved session on load

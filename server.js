@@ -423,7 +423,7 @@ function resolveRound(room) {
   broadcast(room, {
     type:    'round_over',
     winners: winners.map(p => p.id),
-    players: room.players.map(p => ({ id:p.id, name:p.name, finalScore:p.finalScore, qualified:p.qualified, folded:p.folded, tokens:p.tokens })),
+    players: room.players.map(p => ({ id:p.id, name:p.name, color:p.color, finalScore:p.finalScore, qualified:p.qualified, folded:p.folded, tokens:p.tokens })),
     pot:     room.pot,
   });
 

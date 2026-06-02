@@ -195,7 +195,10 @@
         <div class="setup-title">🌐 ONLINE MULTIPLAYER</div>
 
         <div id="lobbyConnect">
-          <div id="accountBadge" class="account-badge"></div>
+          <div id="accountBadge" class="account-badge">
+            <span id="accountBadgeText"></span>
+            <button onclick="authLogout()" style="margin-left:10px;background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:0.78rem;font-family:inherit;font-weight:700;letter-spacing:0.06em;">SIGN OUT</button>
+          </div>
           <div class="lobby-row">
             <label>Your Name</label>
             <input type="text" id="lobbyName" placeholder="Enter your name" maxlength="18">
