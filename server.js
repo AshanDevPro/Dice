@@ -156,6 +156,7 @@ function roomSnapshot(room) {
       rollsUsed: p.rollsUsed, mustLockBeforeRoll: p.mustLockBeforeRoll,
       finalScore: p.finalScore, folded: p.folded, qualified: p.qualified, roundBet: p.roundBet,
       phaseDone: p.phaseDone || false,
+      lastDiceAttempted: p.lastDiceAttempted || false,
     })),
     pot: room.pot, round: room.round, turnPlayerId: room.turnPlayerId,
     phase: room.phase, currentBet: room.currentBet, startTokens: room.startTokens,
@@ -182,8 +183,9 @@ function isHandFull(p) {
 }
 
 function canStillRoll(p) {
-  // A player can still make progress if scoring isn't full (regardless of qualifiers)
-  return !isHandFull(p) && (4 - p.scoringHand.length) > 0;
+  // False once the player has used their one shot on the final die slot
+  if (p.lastDiceAttempted) return false;
+  return !isHandFull(p);
 }
 
 function startRound(room) {
@@ -197,7 +199,7 @@ function startRound(room) {
     p.qualifyHand = []; p.scoringHand = []; p.currentDice = [];
     p.rollsUsed = 0; p.mustLockBeforeRoll = false; p.phaseDone = false;
     p.finalScore = 0; p.folded = false; p.qualified = false; p.roundBet = 0;
-    p.selectedIdx = [];
+    p.selectedIdx = []; p.lastDiceAttempted = false;
     const ante = Math.min(ANTE, p.tokens);
     p.tokens -= ante; p.roundBet += ante; room.pot += ante;
   });
@@ -221,7 +223,8 @@ function startNextSubRound(room) {
   const active = room.players.filter(p => p.tokens > 0 && !p.folded);
 
   active.forEach(p => {
-    p.phaseDone = false;
+    // Players who already used their last-die attempt are auto-done this sub-round
+    p.phaseDone = p.lastDiceAttempted || false;
     p.currentDice = []; p.rollsUsed = 0; p.mustLockBeforeRoll = false;
   });
 
@@ -285,6 +288,9 @@ function rollDice(room, playerId) {
   const scoreSlots = 4 - p.scoringHand.length;
   const total      = qualSlots + scoreSlots;
   if (!total)                    return { error: 'Hand full — end your turn' };
+
+  // Mark that this player has used their one shot on the last remaining slot
+  if (total === 1) p.lastDiceAttempted = true;
 
   p.tokens -= ROLL_COST; room.pot += ROLL_COST;
   p.rollsUsed++;
