@@ -602,14 +602,13 @@ function renderOnlineMyBoard(me, snap) {
     document.getElementById('lockHintLine').style.display = 'block';
   }
 
-  const midOpen     = document.getElementById('midRollBetting').style.display === 'block';
-  const handFull    = me.qualifyHand.includes(1) && me.qualifyHand.includes(4) && me.scoringHand.length === 4;
-  const scoringFull = me.scoringHand.length === 4;
-  // ONE roll per turn — blocked after first roll, also blocked when scoring is full or hand full
+  const midOpen  = document.getElementById('midRollBetting').style.display === 'block';
+  const handFull = me.qualifyHand.includes(1) && me.qualifyHand.includes(4) && me.scoringHand.length === 4;
+  // ONE roll per turn — blocked after first roll or when hand is completely full
   const rollBlocked = !isMyTurn || midOpen || me.rollsUsed >= 1 || me.tokens < ROLL_COST
-                    || handFull || !!me.mustLockBeforeRoll || scoringFull;
-  // End turn: must roll first (unless scoring/hand full), must lock if rolled but not locked
-  const mustRollFirst    = !handFull && !scoringFull && me.rollsUsed === 0;
+                    || handFull || !!me.mustLockBeforeRoll;
+  // End turn: must roll first unless hand is full; must lock if rolled but not locked yet
+  const mustRollFirst     = !handFull && me.rollsUsed === 0;
   const mustLockAfterRoll = me.rollsUsed > 0 && !!me.mustLockBeforeRoll;
   document.getElementById('rollBtn').disabled    = rollBlocked;
   document.getElementById('lockBtn').disabled    = !isMyTurn || midOpen || !(window._onlineSelected && window._onlineSelected.size);

@@ -283,10 +283,8 @@ function rollDice(room, playerId) {
 
   const qualSlots  = (p.qualifyHand.includes(1)?0:1)+(p.qualifyHand.includes(4)?0:1);
   const scoreSlots = 4 - p.scoringHand.length;
-  // Once scoring is full, no more rolling even for qualifiers
-  if (scoreSlots === 0)          return { error: 'Scoring hand full — end your turn' };
-  const total = qualSlots + scoreSlots;
-  if (!total)                    return { error: 'Hand full' };
+  const total      = qualSlots + scoreSlots;
+  if (!total)                    return { error: 'Hand full — end your turn' };
 
   p.tokens -= ROLL_COST; room.pot += ROLL_COST;
   p.rollsUsed++;
@@ -315,7 +313,9 @@ function lockDice(room, playerId, selectedIdx) {
     // Wrong value for qualifier, scoring full → die discarded, player won't qualify
   }
 
-  for (let i=selectedIdx.length-1; i>=0; i--) p.currentDice.splice(selectedIdx[i],1);
+  // Sort descending so high indices are spliced first — prevents index-shift bugs
+  // when dice are selected in non-ascending tap order.
+  [...selectedIdx].sort((a, b) => b - a).forEach(i => p.currentDice.splice(i, 1));
   p.selectedIdx        = [];
   p.mustLockBeforeRoll = false;
 
@@ -332,8 +332,8 @@ function endTurn(room, playerId) {
   const handFull   = qualSlots + scoreSlots === 0;
   const scoringFull = scoreSlots === 0;
 
-  // Must roll first unless hand is full or scoring is already full (can't roll anyway)
-  if (!handFull && !scoringFull && p.rollsUsed === 0) return { error: 'Must roll at least once' };
+  // Must roll first unless hand is already full (scoring-full still has qualifier slots open)
+  if (!handFull && p.rollsUsed === 0) return { error: 'Must roll at least once' };
   // Rolled but haven't locked yet
   if (p.mustLockBeforeRoll) return { error: 'Lock at least one die before ending turn' };
 
