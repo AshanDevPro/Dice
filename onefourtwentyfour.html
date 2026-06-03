@@ -738,6 +738,17 @@ function renderWaitingPlayers(players) {
 // ─────────────────────────────────────
 //  GAME RENDER
 // ─────────────────────────────────────
+function hasCompletedQualifyingHand(p) {
+  return Array.isArray(p.qualifyHand) && p.qualifyHand.includes(1) && p.qualifyHand.includes(4);
+}
+
+function qualifyingHandStatus(p, compact) {
+  if (p.folded) return compact ? '❌' : '❌ Folded';
+  if (hasCompletedQualifyingHand(p)) return compact ? '✅ Qualified' : '✅ Qualified';
+  if (p.rollsUsed > 0) return compact ? 'Not qualified' : 'Qualifying incomplete';
+  return compact ? '—' : '⏳ Waiting';
+}
+
 function renderGame(snap) {
   if (!snap) return;
   const me = snap.players.find(p => p.id === mp.myId);
@@ -767,7 +778,7 @@ function renderGame(snap) {
     tab.innerHTML = `
       <div class="tab-name" style="color:${p.color}">${p.name}${p.id===mp.myId?' ★':''}</div>
       <div class="tab-tokens">💰 ${p.tokens}</div>
-      <div class="tab-score">${p.finalScore>0?'✅ '+p.finalScore:p.folded?'❌':'—'}</div>
+      <div class="tab-score">${qualifyingHandStatus(p, true)}</div>
       <div class="tab-arrow">▼</div>
     `;
     strip.appendChild(tab);
@@ -778,10 +789,11 @@ function renderGame(snap) {
   grid.innerHTML = '';
   snap.players.filter(p=>p.id!==mp.myId).forEach(p => {
     const card = document.createElement('div');
+    const qualifiedHand = hasCompletedQualifyingHand(p);
     card.className = 'opponent-card' +
       (p.id===snap.turnPlayerId?' active-turn':'') +
       (p.folded?' folded':'') +
-      (p.finalScore>0&&snap.phase!=='roll'?' winner-glow':'');
+      (qualifiedHand&&snap.phase!=='roll'?' winner-glow':'');
     const allDice = [...p.qualifyHand, ...p.scoringHand];
     let diceHtml = '';
     for (let j=0; j<6; j++) {
@@ -795,10 +807,10 @@ function renderGame(snap) {
       <div class="opp-name" style="color:${p.color}">${p.name}</div>
       <div class="opp-tokens">💰 ${p.tokens}</div>
       <div class="opp-dice">${diceHtml}</div>
-      <div class="opp-status ${p.qualified?'qualified':''}">${
+      <div class="opp-status ${qualifiedHand?'qualified':''}">${
         p.folded ? '❌ Folded' :
-        p.finalScore>0 ? `✅ ${p.finalScore}` :
-        p.rollsUsed>0  ? '🎲 Playing...' : '⏳ Waiting'
+        qualifiedHand ? '✅ Qualified' :
+        p.rollsUsed>0  ? 'Qualifying incomplete' : '⏳ Waiting'
       }</div>
     `;
     grid.appendChild(card);
@@ -839,7 +851,7 @@ function renderMyBoard(me, snap) {
       const span = document.createElement('span');
       span.className = 'empty-hint';
       span.style.cssText = 'font-weight:700; color:#ffd166;';
-      span.textContent = `= ${me.scoringHand.reduce((a,b)=>a+b,0)}`;
+      span.textContent = '✅ Qualified';
       sRow.appendChild(span);
     }
   }

@@ -157,6 +157,7 @@ function roomSnapshot(room) {
       finalScore: p.finalScore, folded: p.folded, qualified: p.qualified, roundBet: p.roundBet,
       phaseDone: p.phaseDone || false,
       lastDiceAttempted: p.lastDiceAttempted || false,
+      pendingAutoFold: p.pendingAutoFold || false,
     })),
     pot: room.pot, round: room.round, turnPlayerId: room.turnPlayerId,
     phase: room.phase, currentBet: room.currentBet, startTokens: room.startTokens,
@@ -199,7 +200,7 @@ function startRound(room) {
     p.qualifyHand = []; p.scoringHand = []; p.currentDice = [];
     p.rollsUsed = 0; p.mustLockBeforeRoll = false; p.phaseDone = false;
     p.finalScore = 0; p.folded = false; p.qualified = false; p.roundBet = 0;
-    p.selectedIdx = []; p.lastDiceAttempted = false;
+    p.selectedIdx = []; p.lastDiceAttempted = false; p.pendingAutoFold = false;
     const ante = Math.min(ANTE, p.tokens);
     p.tokens -= ante; p.roundBet += ante; room.pot += ante;
   });
@@ -299,12 +300,43 @@ function rollDice(room, playerId) {
   p.mustLockBeforeRoll = true;
 
   broadcast(room, roomSnapshot(room));
+
+  // Auto-fail: last die slot was a qualifier and the rolled value can't fill it
+  if (total === 1 && scoreSlots === 0 && qualSlots === 1) {
+    const neededQual = !p.qualifyHand.includes(1) ? 1 : 4;
+    const rolledValue = p.currentDice[0];
+    if (rolledValue !== neededQual) {
+      p.pendingAutoFold = true;
+      broadcast(room, roomSnapshot(room));
+      broadcast(room, {
+        type: 'qualify_failed',
+        playerId: p.id, playerName: p.name,
+        rolledValue, neededQual,
+      });
+      setTimeout(() => autoFailQualify(room, p.id), 2000);
+    }
+  }
+
   return { ok: true };
+}
+
+function autoFailQualify(room, playerId) {
+  const p = getPlayer(room, playerId);
+  if (!p || p.phaseDone || p.folded) return; // already handled
+  p.folded          = true;
+  p.pendingAutoFold = false;
+  p.currentDice     = [];
+  p.mustLockBeforeRoll = false;
+  p.phaseDone       = true;
+  room.bettingPhase = 'before_roll';
+  broadcast(room, roomSnapshot(room));
+  advanceTurnInPhase(room);
 }
 
 function lockDice(room, playerId, selectedIdx) {
   const p = getPlayer(room, playerId);
   if (!p || room.turnPlayerId !== playerId) return { error: 'Not your turn' };
+  if (p.pendingAutoFold)                    return { error: 'Qualifying failed — auto-folding' };
   if (!selectedIdx || !selectedIdx.length)  return { error: 'Select at least one die' };
 
   const vals = selectedIdx.map(i => p.currentDice[i]).filter(v => v !== undefined);
@@ -418,6 +450,8 @@ function resolveRound(room) {
     .sort((a,b) => b.finalScore - a.finalScore);
 
   let winners = [];
+  const potWentToHouse = eligible.length === 0;
+
   if (eligible.length) {
     const best = eligible[0].finalScore;
     winners = eligible.filter(p => p.finalScore === best);
@@ -428,7 +462,7 @@ function resolveRound(room) {
   broadcast(room, {
     type: 'round_over', winners: winners.map(p => p.id),
     players: room.players.map(p => ({ id:p.id, name:p.name, color:p.color, finalScore:p.finalScore, qualified:p.qualified, folded:p.folded, tokens:p.tokens })),
-    pot: room.pot,
+    pot: room.pot, potWentToHouse,
   });
 
   room.pot = 0;

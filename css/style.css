@@ -202,10 +202,9 @@ body::before {
   letter-spacing: 0.06em;
   color: var(--text);
 }
-.opp-score-line {
+.opp-qual-line {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.5rem;
-  color: var(--gold-bright);
+  font-size: 1rem;
   letter-spacing: 0.06em;
   margin-bottom: 8px;
   display: flex;
@@ -213,12 +212,20 @@ body::before {
   justify-content: center;
   gap: 5px;
 }
+.opp-qual-line.qualified { color: var(--teal); }
+.opp-qual-line.no14      { color: var(--muted); }
 .opp-dice-row {
   display: flex;
   justify-content: center;
   gap: 4px;
   flex-wrap: wrap;
   margin-bottom: 6px;
+}
+.opp-qual-slots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0 6px;
 }
 .opp-status {
   font-size: 0.7rem;

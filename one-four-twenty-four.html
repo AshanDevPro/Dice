@@ -1009,10 +1009,21 @@ function renderStrip(){
     tab.className='ptab'+(i===activePi?' active':'')+(p.folded?' folded':'')+(p.tokens<=0?' out':'');
     tab.innerHTML=`<div class="ptab-name" style="color:${p.color}">${p.name}</div>
       <div class="ptab-tok">💰 ${p.tokens}</div>
-      <div class="ptab-score">${p.qualified?'✅ '+p.finalScore:p.folded?'❌':'—'}</div>
+      <div class="ptab-score">${qualifyingHandStatus(p,true)}</div>
       <div class="ptab-arrow">▼</div>`;
     el.appendChild(tab);
   });
+}
+
+function hasCompletedQualifyingHand(p){
+  return Array.isArray(p.qualHand)&&p.qualHand.includes(1)&&p.qualHand.includes(4);
+}
+
+function qualifyingHandStatus(p,compact){
+  if(p.folded)return compact?'❌':'❌ Folded';
+  if(hasCompletedQualifyingHand(p))return compact?'✅ Qualified':'✅ Qualified';
+  if(p.rolls>0)return compact?'Not qualified':'Qualifying incomplete';
+  return compact?'—':'⏳ Waiting';
 }
 
 function renderOpp(){
@@ -1021,7 +1032,8 @@ function renderOpp(){
     const p=S.players[i];
     if(p.type==='human'&&i===activePi)return;
     const card=document.createElement('div');
-    card.className='opp-card'+(i===activePi?' active':'')+(p.folded?' folded':'')+(p.finalScore>0?' winner':'');
+    const qualifiedHand=hasCompletedQualifyingHand(p);
+    card.className='opp-card'+(i===activePi?' active':'')+(p.folded?' folded':'')+(qualifiedHand?' winner':'');
     const all=[...p.qualHand,...p.scoreHand];
     let dh='';
     for(let j=0;j<6;j++){
@@ -1032,7 +1044,7 @@ function renderOpp(){
     card.innerHTML=`<div class="opp-name" style="color:${p.color}">${p.name}${p.type==='ai'?' 🤖':''}</div>
       <div class="opp-meta"><span>💰 ${p.tokens}</span><span>Rolls: ${p.rolls}</span></div>
       <div class="opp-dice">${dh}</div>
-      <div class="opp-status">${p.folded?'❌ Folded':p.finalScore>0?`✅ ${p.finalScore}`:p.rolls>0?'🎲 Playing...':'⏳ Waiting'}</div>`;
+      <div class="opp-status">${qualifyingHandStatus(p,false)}</div>`;
     grid.appendChild(card);
   });
 }
@@ -1057,7 +1069,7 @@ function renderBoard(){
     p.scoreHand.forEach(v=>{const d=document.createElement('div');d.className='die locked';setDie(d,v,false,false);sr.appendChild(d);});
     if(p.scoreHand.length<4){const s=document.createElement('span');s.className='hint';s.textContent=`+${4-p.scoreHand.length} slots`;sr.appendChild(s);}
     const qc=p.qualHand.includes(1)&&p.qualHand.includes(4);
-    if(qc){const s=document.createElement('span');s.style.cssText='font-weight:700;color:var(--gold);font-size:0.9rem;';s.textContent=`= ${p.scoreHand.reduce((a,b)=>a+b,0)}`;sr.appendChild(s);}
+    if(qc){const s=document.createElement('span');s.style.cssText='font-weight:700;color:var(--gold);font-size:0.9rem;';s.textContent='✅ Qualified';sr.appendChild(s);}
   }
 
   // Roll row

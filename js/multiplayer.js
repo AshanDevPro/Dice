@@ -425,6 +425,15 @@ function handleServerMsg(msg) {
       renderOnlineGameOver(msg);
       break;
 
+    case 'qualify_failed':
+      if (msg.playerId === mp.myId) {
+        showMsg('You rolled a ' + msg.rolledValue + ' — needed a ' + msg.neededQual + '. You did not qualify! Auto-folding...', 'error');
+      } else {
+        showMsg(msg.playerName + ' did not qualify — auto-folding.', 'warn');
+      }
+      if (window.SFX) window.SFX.roundLose();
+      break;
+
     case 'player_left':
       showMsg(msg.playerName + ' disconnected.', 'warn');
       break;
@@ -484,6 +493,25 @@ function renderLobbyPlayers(players) {
 }
 
 // ── Online game render ────────────────────────────────────────────────────────
+function hasCompletedQualifyingHand(player) {
+  return Array.isArray(player.qualifyHand) &&
+    player.qualifyHand.includes(1) &&
+    player.qualifyHand.includes(4);
+}
+
+function qualifyingHandStatus(player, compact) {
+  if (player.folded)
+    return compact ? '&#10060;' : '&#10060; Folded';
+
+  if (hasCompletedQualifyingHand(player))
+    return compact ? '&#9989; Qualified' : '&#9989; Qualifying hand complete';
+
+  if (player.rollsUsed > 0)
+    return compact ? 'Not qualified' : 'Qualifying hand incomplete';
+
+  return compact ? '&mdash;' : '&#9203; Waiting';
+}
+
 function renderOnlineGame(snap) {
   const me = snap.players.find(p => p.id === mp.myId);
   if (!me) return;
@@ -499,10 +527,11 @@ function renderOnlineGame(snap) {
       (p.id === snap.turnPlayerId ? ' active-turn' : '') +
       (p.folded  ? ' folded'      : '') +
       (p.tokens <= 0 ? ' eliminated' : '');
+    const tabQual = hasCompletedQualifyingHand(p) ? '✅' : p.folded ? '❌' : p.rollsUsed > 0 ? '⚠' : '—';
     tab.innerHTML =
       '<div class="tab-name" style="color:' + p.color + '">' + p.name + (p.id === mp.myId ? ' (You)' : '') + '</div>' +
       '<div class="tab-tokens">💰 ' + p.tokens + '</div>' +
-      '<div class="tab-score">' + (p.finalScore > 0 ? '✅ ' + p.finalScore : p.folded ? '❌' : p.rollsUsed > 0 ? '🎲...' : '—') + '</div>' +
+      '<div class="tab-score">' + tabQual + '</div>' +
       '<div class="turn-arrow">▼</div>';
     strip.appendChild(tab);
   });
@@ -511,25 +540,29 @@ function renderOnlineGame(snap) {
   grid.innerHTML = '';
   snap.players.filter(p => p.id !== mp.myId).forEach(p => {
     const card = document.createElement('div');
-    card.className = 'opp-card color-' + p.colorIdx + (p.folded ? ' folded' : '') + (p.finalScore > 0 ? ' winner' : '');
-    const allDice = [...p.qualifyHand, ...p.scoringHand];
-    let diceHTML = '';
-    for (let j = 0; j < 6; j++) {
-      const v   = allDice[j];
-      const isQ = j < p.qualifyHand.length;
-      const tmp = document.createElement('div');
-      setDieImg(tmp, v || 0, false, isQ && !!v);
-      diceHTML += '<div class="small-die" style="background-image:' + tmp.style.backgroundImage + '"></div>';
-    }
+    const hasQualified = hasCompletedQualifyingHand(p);
+    card.className = 'opp-card color-' + p.colorIdx + (p.folded ? ' folded' : '') + (hasQualified ? ' qualified-hand' : '');
+
+    // Only show the two qualifier slots — scoring dice are hidden until round reveal
+    let qualHTML = '';
+    const needs1 = !p.qualifyHand.includes(1);
+    const needs4 = !p.qualifyHand.includes(4);
+    const tmp1 = document.createElement('div');
+    const tmp4 = document.createElement('div');
+    setDieImg(tmp1, needs1 ? 0 : 1, false, !needs1);
+    setDieImg(tmp4, needs4 ? 0 : 4, false, !needs4);
+    qualHTML =
+      '<div class="small-die" style="background-image:' + tmp1.style.backgroundImage + '" title="1"></div>' +
+      '<div class="small-die" style="background-image:' + tmp4.style.backgroundImage + '" title="4"></div>';
+
     card.innerHTML =
       '<div class="opp-card-header">' +
         '<div class="opp-dot" style="background:' + p.color + '"></div>' +
         '<div class="opp-name">' + p.name + '</div>' +
       '</div>' +
-      '<div class="opp-score-line">🏆 ' + (p.finalScore || 0) + '</div>' +
-      '<div class="opp-dice-row">' + diceHTML + '</div>' +
-      '<div class="opp-status ' + (p.finalScore > 0 ? 'qualified' : 'no14') + '">' +
-        (p.folded ? '❌ Folded' : p.finalScore > 0 ? '✅ Qualified' : p.rollsUsed > 0 ? '⚠ Playing...' : '⏳ Waiting') +
+      '<div class="opp-qual-slots">' + qualHTML + '</div>' +
+      '<div class="opp-status ' + (hasQualified ? 'qualified' : p.folded ? '' : 'no14') + '">' +
+        (p.folded ? '❌ Folded' : hasQualified ? '✅ Qualified' : p.rollsUsed > 0 ? '⚠ Playing...' : '⏳ Waiting') +
       '</div>';
     grid.appendChild(card);
   });
@@ -573,7 +606,7 @@ function renderOnlineMyBoard(me, snap) {
     });
     const qc = me.qualifyHand.includes(1) && me.qualifyHand.includes(4);
     if (qc)
-      sRow.insertAdjacentHTML('beforeend', '<span class="zone-hint" style="font-size:0.85rem;margin-left:8px">= ' + me.scoringHand.reduce((a,b) => a+b, 0) + '</span>');
+      sRow.insertAdjacentHTML('beforeend', '<span class="zone-hint" style="font-size:0.85rem;margin-left:8px">&#9989; Qualified</span>');
   }
 
   const rRow = document.getElementById('rollRow');
@@ -604,15 +637,16 @@ function renderOnlineMyBoard(me, snap) {
 
   const midOpen  = document.getElementById('midRollBetting').style.display === 'block';
   const handFull = me.qualifyHand.includes(1) && me.qualifyHand.includes(4) && me.scoringHand.length === 4;
+  const pendingFold = !!me.pendingAutoFold;
   // ONE roll per turn — blocked after first roll or when hand is completely full
   const rollBlocked = !isMyTurn || midOpen || me.rollsUsed >= 1 || me.tokens < ROLL_COST
-                    || handFull || !!me.mustLockBeforeRoll;
+                    || handFull || !!me.mustLockBeforeRoll || pendingFold;
   // End turn: must roll first unless hand is full; must lock if rolled but not locked yet
   const mustRollFirst     = !handFull && me.rollsUsed === 0;
   const mustLockAfterRoll = me.rollsUsed > 0 && !!me.mustLockBeforeRoll;
   document.getElementById('rollBtn').disabled    = rollBlocked;
-  document.getElementById('lockBtn').disabled    = !isMyTurn || midOpen || !(window._onlineSelected && window._onlineSelected.size);
-  document.getElementById('endTurnBtn').disabled = !isMyTurn || midOpen || mustRollFirst || mustLockAfterRoll;
+  document.getElementById('lockBtn').disabled    = !isMyTurn || midOpen || pendingFold || !(window._onlineSelected && window._onlineSelected.size);
+  document.getElementById('endTurnBtn').disabled = !isMyTurn || midOpen || pendingFold || mustRollFirst || mustLockAfterRoll;
   if (!me.currentDice || me.currentDice.length === 0) window._onlineSelected = new Set();
 }
 
@@ -686,9 +720,11 @@ function renderOnlineResults(msg) {
     scores.appendChild(pill);
   });
   const winners = msg.players.filter(p => msg.winners.includes(p.id));
-  if (winners.length) {
+  if (msg.potWentToHouse) {
+    winEl.innerHTML = '🏦 No one qualified — pot forfeit to the house!';
+  } else if (winners.length) {
     const w = winners[0];
-    winEl.innerHTML = '👑 WINNER: ' + w.name + ' 👑<br>Score: ' + w.finalScore;
+    winEl.innerHTML = '👑 WINNER: ' + w.name + ' — Score: ' + w.finalScore + ' 👑';
   } else {
     winEl.textContent = 'No winner this round';
   }
