@@ -15,6 +15,7 @@ const ANTE        = 50;
 const ROLL_COST   = 10;
 const MAX_ROLLS   = 6;
 const START_TOKENS = 500;
+const DAILY_BONUS  = 200;
 
 // ── Static file server ──────────────────────────────────────────────────────
 const MIME = {
@@ -111,6 +112,26 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
+  // ── POST /api/daily-bonus ────────────────────────────────────────────────
+  if (req.url === '/api/daily-bonus' && req.method === 'POST') {
+    const token = req.headers['authorization']?.replace('Bearer ', '');
+    const key   = token && sessions[token];
+    const user  = key && users[key];
+    if (!user) return json(401, { error: 'Not authenticated' });
+    const now     = Date.now();
+    const last    = user.lastDailyBonus || 0;
+    const msLeft  = (last + 24 * 60 * 60 * 1000) - now;
+    if (msLeft > 0) {
+      const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
+      return json(429, { error: 'Already claimed', hoursLeft });
+    }
+    user.tokens += DAILY_BONUS;
+    user.lastDailyBonus = now;
+    saveUsers();
+    json(200, { tokensAdded: DAILY_BONUS, tokens: user.tokens });
+    return;
+  }
+
   // ── Static files ─────────────────────────────────────────────────────────
   let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
   const ext    = path.extname(filePath);
@@ -158,10 +179,12 @@ function roomSnapshot(room) {
       phaseDone: p.phaseDone || false,
       lastDiceAttempted: p.lastDiceAttempted || false,
       pendingAutoFold: p.pendingAutoFold || false,
+      isAI: p.isAI || false,
     })),
     pot: room.pot, round: room.round, turnPlayerId: room.turnPlayerId,
     phase: room.phase, currentBet: room.currentBet, startTokens: room.startTokens,
     subRound: room.subRound || 1, bettingPhase: room.bettingPhase || 'before_roll',
+    isSinglePlayer: room.isSinglePlayer || false,
   };
 }
 
@@ -173,6 +196,7 @@ function createRoom(code, hostClient, startTokens) {
     code, clients: [], players: [], pot: 0, round: 1, turnPlayerId: null,
     phase: 'lobby', currentBet: 0, startTokens: startTokens || START_TOKENS,
     bettingQueue: [], bettingPhase: 'before_roll', started: false, subRound: 1,
+    isSinglePlayer: false,
   };
 }
 
@@ -214,7 +238,27 @@ function startRound(room) {
 function broadcastTurnNotice(room) {
   const p = getPlayer(room, room.turnPlayerId);
   if (!p) return;
-  broadcast(room, { type: 'your_turn', playerId: room.turnPlayerId, playerName: p.name });
+
+  const hasQualifier = p.qualifyHand.includes(1) && p.qualifyHand.includes(4);
+  const handFull     = isHandFull(p);
+  const cantRoll     = !handFull && !p.lastDiceAttempted && p.tokens < ROLL_COST;
+
+  // Human player who can't roll and hasn't qualified → auto-bust
+  if (cantRoll && !hasQualifier && !p.isAI) {
+    broadcast(room, { type: 'bust', playerId: p.id, playerName: p.name });
+    setTimeout(() => autoBust(room, p.id), 2500);
+    return;
+  }
+
+  broadcast(room, {
+    type: 'your_turn', playerId: p.id, playerName: p.name,
+    cantAffordRoll: cantRoll && hasQualifier,
+  });
+
+  // AI takes turn automatically after a short "thinking" delay
+  if (p.isAI) {
+    setTimeout(() => aiTakeTurn(room, p.id), 1200);
+  }
 }
 
 function startNextSubRound(room) {
@@ -333,6 +377,18 @@ function autoFailQualify(room, playerId) {
   advanceTurnInPhase(room);
 }
 
+function autoBust(room, playerId) {
+  const p = getPlayer(room, playerId);
+  if (!p || p.folded || p.phaseDone) return;
+  p.folded = true;
+  p.pendingAutoFold = false;
+  p.currentDice = [];
+  p.mustLockBeforeRoll = false;
+  p.phaseDone = true;
+  broadcast(room, roomSnapshot(room));
+  advanceTurnInPhase(room);
+}
+
 function lockDice(room, playerId, selectedIdx) {
   const p = getPlayer(room, playerId);
   if (!p || room.turnPlayerId !== playerId) return { error: 'Not your turn' };
@@ -370,8 +426,12 @@ function endTurn(room, playerId) {
   const handFull   = qualSlots + scoreSlots === 0;
   const scoringFull = scoreSlots === 0;
 
-  // Must roll first unless hand is already full (scoring-full still has qualifier slots open)
-  if (!handFull && p.rollsUsed === 0) return { error: 'Must roll at least once' };
+  // Must roll first unless: hand is already full, OR broke but already has both qualifiers
+  const hasQualifier    = p.qualifyHand.includes(1) && p.qualifyHand.includes(4);
+  const brokeCannotRoll = p.tokens < ROLL_COST;
+  if (!handFull && p.rollsUsed === 0 && !(brokeCannotRoll && hasQualifier)) {
+    return { error: 'Must roll at least once' };
+  }
   // Rolled but haven't locked yet
   if (p.mustLockBeforeRoll) return { error: 'Lock at least one die before ending turn' };
 
@@ -388,6 +448,78 @@ function endTurn(room, playerId) {
   serveBettingQueue(room);
 
   return { ok: true };
+}
+
+// ── AI player logic ──────────────────────────────────────────────────────────
+function aiTakeTurn(room, playerId) {
+  const p = getPlayer(room, playerId);
+  if (!p || p.folded || p.pendingAutoFold || room.turnPlayerId !== playerId) return;
+
+  const handFull    = isHandFull(p);
+  const hasQualifier = p.qualifyHand.includes(1) && p.qualifyHand.includes(4);
+  const cantRoll    = !handFull && p.tokens < ROLL_COST;
+
+  if (cantRoll) {
+    if (!hasQualifier) { autoBust(room, playerId); }
+    else               { endTurn(room, playerId); }
+    return;
+  }
+  if (handFull) { endTurn(room, playerId); return; }
+
+  const result = rollDice(room, playerId);
+  if (result.error) { endTurn(room, playerId); return; }
+  setTimeout(() => aiLockAndEnd(room, playerId), 1000);
+}
+
+function aiLockAndEnd(room, playerId) {
+  const p = getPlayer(room, playerId);
+  if (!p || p.folded) return;
+  if (p.pendingAutoFold) return; // autoFailQualify timer will handle it
+
+  if (!p.currentDice || !p.currentDice.length) { endTurn(room, playerId); return; }
+
+  const needs1      = !p.qualifyHand.includes(1);
+  const needs4      = !p.qualifyHand.includes(4);
+  const scoreSlots  = 4 - p.scoringHand.length;
+  const selectedIdx = [];
+  const usedIdx     = new Set();
+
+  if (needs1) {
+    const idx = p.currentDice.findIndex((v, i) => v === 1 && !usedIdx.has(i));
+    if (idx !== -1) { selectedIdx.push(idx); usedIdx.add(idx); }
+  }
+  if (needs4) {
+    const idx = p.currentDice.findIndex((v, i) => v === 4 && !usedIdx.has(i));
+    if (idx !== -1) { selectedIdx.push(idx); usedIdx.add(idx); }
+  }
+  if (scoreSlots > 0) {
+    p.currentDice
+      .map((v, i) => ({ v, i }))
+      .filter(d => !usedIdx.has(d.i))
+      .sort((a, b) => b.v - a.v)
+      .slice(0, scoreSlots)
+      .forEach(d => selectedIdx.push(d.i));
+  }
+
+  if (selectedIdx.length > 0) {
+    lockDice(room, playerId, selectedIdx);
+    setTimeout(() => endTurn(room, playerId), 700);
+  } else {
+    endTurn(room, playerId);
+  }
+}
+
+function aiBet(room, playerId) {
+  const p = getPlayer(room, playerId);
+  if (!p || p.folded) return;
+  const callAmt = Math.max(0, room.currentBet - (p.roundBet || 0));
+  if (callAmt > 0 && callAmt <= p.tokens) {
+    placeBet(room, playerId, 'call', callAmt);
+  } else if (callAmt > 0) {
+    placeBet(room, playerId, 'fold', 0);
+  } else {
+    placeBet(room, playerId, 'check', 0);
+  }
 }
 
 function placeBet(room, playerId, action, amount) {
@@ -430,6 +562,11 @@ function serveBettingQueue(room) {
   const pid = room.bettingQueue.shift();
   const p   = room.players.find(pl => pl.id === pid);
   if (!p || p.folded || p.tokens <= 0) { serveBettingQueue(room); return; }
+  // AI auto-bets
+  if (p.isAI) {
+    setTimeout(() => aiBet(room, pid), 700);
+    return;
+  }
   broadcast(room, {
     type: 'bet_action_needed', playerId: pid,
     currentBet: room.currentBet, pot: room.pot,
@@ -461,19 +598,23 @@ function resolveRound(room) {
 
   broadcast(room, {
     type: 'round_over', winners: winners.map(p => p.id),
-    players: room.players.map(p => ({ id:p.id, name:p.name, color:p.color, finalScore:p.finalScore, qualified:p.qualified, folded:p.folded, tokens:p.tokens })),
-    pot: room.pot, potWentToHouse,
+    players: room.players.map(p => ({ id:p.id, name:p.name, color:p.color, finalScore:p.finalScore, qualified:p.qualified, folded:p.folded, tokens:p.tokens, isAI: p.isAI || false })),
+    pot: room.pot, potWentToHouse, isSinglePlayer: room.isSinglePlayer || false,
   });
 
   room.pot = 0;
   room.round++;
-  saveRoomTokens(room);
+  if (!room.isSinglePlayer) saveRoomTokens(room);
   setTimeout(() => startRound(room), 5000);
 }
 
 function endGame(room) {
-  saveRoomTokens(room);
-  broadcast(room, { type: 'game_over', players: room.players.map(p => ({ id:p.id, name:p.name, tokens:p.tokens })) });
+  if (!room.isSinglePlayer) saveRoomTokens(room);
+  broadcast(room, {
+    type: 'game_over',
+    players: room.players.map(p => ({ id:p.id, name:p.name, tokens:p.tokens, isAI: p.isAI || false })),
+    isSinglePlayer: room.isSinglePlayer || false,
+  });
 }
 
 // ── WebSocket server ─────────────────────────────────────────────────────────
@@ -493,9 +634,11 @@ wss.on('connection', ws => {
         const acct     = uKey && users[uKey];
         const name     = acct ? acct.username : (msg.name || 'Player');
         const startTok = acct ? Math.max(acct.tokens, 100) : (msg.startTokens || START_TOKENS);
+        const vsComp   = !!msg.vsComputer;
 
         const code = makeCode();
         const room = createRoom(code, client, startTok);
+        if (vsComp) room.isSinglePlayer = true;
         rooms[code]     = room;
         client.roomCode = code;
         client.name     = name;
@@ -509,14 +652,33 @@ wss.on('connection', ws => {
           rollsUsed:0, mustLockBeforeRoll:false,
           finalScore:0, folded:false, qualified:false, roundBet:0,
         });
-        sendTo(client, { type:'room_created', code, playerId: client.id });
-        broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color})) });
+        sendTo(client, { type:'room_created', code, playerId: client.id, isSinglePlayer: vsComp });
+        broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color,isAI:p.isAI||false})) });
+
+        if (vsComp) {
+          // Add AI opponent and start immediately
+          const aiColorIdx = 1;
+          const aiId = 'AI_' + makeCode();
+          room.players.push({
+            id: aiId, name: 'Computer',
+            tokens: startTok, color: COLORS[aiColorIdx], colorIdx: aiColorIdx,
+            qualifyHand:[], scoringHand:[], currentDice:[], selectedIdx:[],
+            rollsUsed:0, mustLockBeforeRoll:false,
+            finalScore:0, folded:false, qualified:false, roundBet:0,
+            isAI: true,
+          });
+          broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color,isAI:p.isAI||false})) });
+          room.started = true;
+          broadcast(room, { type:'game_starting', isSinglePlayer: true });
+          setTimeout(() => startRound(room), 1500);
+        }
         break;
       }
 
       case 'join_room': {
         const room = rooms[msg.code];
         if (!room)                    { sendTo(client, { type:'error', msg:'Room not found' }); break; }
+        if (room.isSinglePlayer)      { sendTo(client, { type:'error', msg:'That is a private practice game' }); break; }
         if (room.started)             { sendTo(client, { type:'error', msg:'Game already started' }); break; }
         if (room.players.length >= 6) { sendTo(client, { type:'error', msg:'Room full' }); break; }
 

@@ -8,15 +8,16 @@ const _wsProto   = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const _wsDefault = _wsProto + '//' + window.location.host;
 
 let mp = {
-  ws:         null,
-  myId:       null,
-  roomCode:   null,
-  isHost:     false,
-  serverUrl:  _wsDefault,
-  myName:     'Player',
-  gameState:  null,
-  connected:  false,
-  connecting: false,
+  ws:            null,
+  myId:          null,
+  roomCode:      null,
+  isHost:        false,
+  serverUrl:     _wsDefault,
+  myName:        'Player',
+  gameState:     null,
+  connected:     false,
+  connecting:    false,
+  isSinglePlayer: false,
 };
 
 // ── Auth state ────────────────────────────────────────────────────────────────
@@ -80,8 +81,40 @@ function updateAccountBadge() {
     badge.style.display = 'flex';
     badge.style.alignItems = 'center';
     badge.style.justifyContent = 'center';
+    badge.style.flexWrap = 'wrap';
+    badge.style.gap = '8px';
   } else {
     badge.style.display = 'none';
+  }
+}
+
+async function claimDailyBonus() {
+  if (!auth.sessionToken) return;
+  const btn = document.getElementById('dailyBonusBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const res  = await fetch('/api/daily-bonus', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + auth.sessionToken },
+    });
+    const data = await res.json();
+    const fbEl = document.getElementById('dailyBonusFeedback');
+    if (res.ok) {
+      auth.tokens = data.tokens;
+      updateAccountBadge();
+      if (fbEl) { fbEl.textContent = '✅ +' + data.tokensAdded + ' tokens claimed!'; fbEl.style.color = '#06d6a0'; }
+    } else if (res.status === 429) {
+      if (fbEl) { fbEl.textContent = '⏳ Next bonus in ' + data.hoursLeft + 'h'; fbEl.style.color = '#f59e1b'; }
+      if (btn) btn.disabled = false;
+    } else {
+      if (fbEl) { fbEl.textContent = data.error || 'Error'; fbEl.style.color = '#ff6b6b'; }
+      if (btn) btn.disabled = false;
+    }
+    if (fbEl) setTimeout(() => { fbEl.textContent = ''; }, 5000);
+  } catch {
+    const fbEl = document.getElementById('dailyBonusFeedback');
+    if (fbEl) { fbEl.textContent = 'Connection error'; fbEl.style.color = '#ff6b6b'; }
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -250,6 +283,19 @@ document.getElementById('lobbyStartBtn').addEventListener('click', () => {
   if (mp.ws) mp.ws.send(JSON.stringify({ type: 'start_game' }));
 });
 
+document.getElementById('vsComputerBtn').addEventListener('click', () => {
+  if (mp.connecting) return;
+  mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
+  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || _wsDefault;
+  connectWS(() => {
+    mp.ws.send(JSON.stringify({
+      type: 'create_room', name: mp.myName,
+      startTokens: 500, sessionToken: auth.sessionToken || null,
+      vsComputer: true,
+    }));
+  });
+});
+
 document.getElementById('lobbyBackBtn').addEventListener('click', () => {
   disconnectWS();
   document.getElementById('lobbyConnect').style.display = 'block';
@@ -343,10 +389,11 @@ function handleServerMsg(msg) {
   switch (msg.type) {
 
     case 'room_created':
-      mp.myId     = msg.playerId;
-      mp.roomCode = msg.code;
-      mp.isHost   = true;
-      showLobbyWaiting(msg.code, true);
+      mp.myId           = msg.playerId;
+      mp.roomCode       = msg.code;
+      mp.isHost         = true;
+      mp.isSinglePlayer = !!msg.isSinglePlayer;
+      showLobbyWaiting(msg.code, true, msg.isSinglePlayer);
       break;
 
     case 'room_joined':
@@ -358,13 +405,13 @@ function handleServerMsg(msg) {
 
     case 'player_joined':
       renderLobbyPlayers(msg.players);
-      if (mp.isHost) {
+      if (mp.isHost && !mp.isSinglePlayer) {
         document.getElementById('lobbyStatusMsg').textContent =
           msg.players.length >= 2
             ? msg.players.length + ' players ready — you can start!'
             : 'Waiting for players to join...';
         document.getElementById('lobbyStartBtn').style.display = msg.players.length >= 2 ? '' : 'none';
-      } else {
+      } else if (!mp.isSinglePlayer) {
         document.getElementById('lobbyStatusMsg').textContent =
           msg.players.length + ' player' + (msg.players.length > 1 ? 's' : '') + ' in room — waiting for host to start...';
       }
@@ -373,6 +420,7 @@ function handleServerMsg(msg) {
     case 'game_starting':
       document.getElementById('lobbyStatusMsg').textContent = 'Game starting...';
       document.getElementById('lobbyStartBtn').style.display = 'none';
+      mp.isSinglePlayer = !!msg.isSinglePlayer;
       break;
 
     case 'round_start':
@@ -390,12 +438,26 @@ function handleServerMsg(msg) {
 
     case 'your_turn':
       if (msg.playerId === mp.myId) {
-        showMsg('Your turn! Roll the dice.');
+        if (msg.cantAffordRoll) {
+          showMsg("⚠️ Not enough tokens to roll! End your turn with your current hand.", 'warn');
+        } else {
+          showMsg('Your turn! Roll the dice.');
+        }
         setOnlineButtonsEnabled(true);
         if (window.SFX) window.SFX.yourTurn();
       } else {
-        showMsg('Waiting for ' + msg.playerName + ' to play...');
+        const isAI = mp.gameState && mp.gameState.players.find(p => p.id === msg.playerId)?.isAI;
+        showMsg(isAI ? '🤖 Computer is thinking...' : 'Waiting for ' + msg.playerName + ' to play...');
         setOnlineButtonsEnabled(false);
+      }
+      break;
+
+    case 'bust':
+      if (msg.playerId === mp.myId) {
+        showMsg("💸 Not enough tokens to roll and you haven't qualified — Auto-folding...", 'error');
+        if (window.SFX) window.SFX.roundLose();
+      } else {
+        showMsg(msg.playerName + " can't afford to roll — auto-folding.", 'warn');
       }
       break;
 
@@ -445,14 +507,17 @@ function handleServerMsg(msg) {
 }
 
 // ── Lobby UI ──────────────────────────────────────────────────────────────────
-function showLobbyWaiting(code, isHost) {
+function showLobbyWaiting(code, isHost, isSinglePlayer) {
   document.getElementById('lobbyConnect').style.display = 'none';
   document.getElementById('lobbyWaiting').style.display = 'block';
-  document.getElementById('lobbyRoomCode').textContent  = code;
+  document.getElementById('lobbyRoomCode').textContent  = isSinglePlayer ? 'VS AI' : code;
   document.getElementById('lobbyStartBtn').style.display = 'none';
   document.getElementById('shareFeedback').textContent  = '';
+  document.getElementById('shareRoomBtn').style.display = isSinglePlayer ? 'none' : '';
   document.getElementById('lobbyStatusMsg').textContent =
-    isHost ? 'You are the host. Waiting for players to join...' : 'Joined! Waiting for host to start...';
+    isSinglePlayer ? '🤖 Practice mode — starting shortly...'
+    : isHost ? 'You are the host. Waiting for players to join...'
+    : 'Joined! Waiting for host to start...';
 }
 
 function shareRoomLink() {
@@ -460,10 +525,10 @@ function shareRoomLink() {
   if (!code) return;
   const base = window.location.href.split('?')[0];
   const url  = base + '?room=' + code;
-  const text = 'Join my PignusDice game! Room code: ' + code;
+  const text = "You've been invited to PignusDice! Room: " + code + "\nJoin at: " + url;
   const fb   = document.getElementById('shareFeedback');
   if (navigator.share) {
-    navigator.share({ title: 'PignusDice', text, url }).catch(() => {});
+    navigator.share({ title: 'PignusDice — Room ' + code, text, url }).catch(() => {});
   } else if (navigator.clipboard) {
     navigator.clipboard.writeText(url).then(() => {
       fb.textContent = '✅ Link copied to clipboard!';
@@ -518,6 +583,14 @@ function renderOnlineGame(snap) {
 
   document.getElementById('potAmount').textContent = snap.pot;
   document.getElementById('roundInfo').textContent = 'Round ' + snap.round;
+
+  // Live pot & round display
+  const potVal = document.getElementById('potInfoDisplay');
+  if (potVal) potVal.textContent = snap.pot;
+  const roundVal = document.getElementById('roundInfoDisplay');
+  if (roundVal) roundVal.textContent = snap.round;
+  const spBadge = document.getElementById('singlePlayerBadge');
+  if (spBadge) spBadge.style.display = snap.isSinglePlayer ? '' : 'none';
 
   const strip = document.getElementById('playersStrip');
   strip.innerHTML = '';
@@ -638,11 +711,13 @@ function renderOnlineMyBoard(me, snap) {
   const midOpen  = document.getElementById('midRollBetting').style.display === 'block';
   const handFull = me.qualifyHand.includes(1) && me.qualifyHand.includes(4) && me.scoringHand.length === 4;
   const pendingFold = !!me.pendingAutoFold;
+  const hasQualifier = me.qualifyHand.includes(1) && me.qualifyHand.includes(4);
+  const brokeButQualified = me.tokens < ROLL_COST && hasQualifier;
   // ONE roll per turn — blocked after first roll or when hand is completely full
   const rollBlocked = !isMyTurn || midOpen || me.rollsUsed >= 1 || me.tokens < ROLL_COST
                     || handFull || !!me.mustLockBeforeRoll || pendingFold;
-  // End turn: must roll first unless hand is full; must lock if rolled but not locked yet
-  const mustRollFirst     = !handFull && me.rollsUsed === 0;
+  // End turn: must roll first unless hand is full, broke-but-qualified, or already rolled
+  const mustRollFirst     = !handFull && me.rollsUsed === 0 && !brokeButQualified;
   const mustLockAfterRoll = me.rollsUsed > 0 && !!me.mustLockBeforeRoll;
   document.getElementById('rollBtn').disabled    = rollBlocked;
   document.getElementById('lockBtn').disabled    = !isMyTurn || midOpen || pendingFold || !(window._onlineSelected && window._onlineSelected.size);
@@ -724,9 +799,15 @@ function renderOnlineResults(msg) {
     winEl.innerHTML = '🏦 No one qualified — pot forfeit to the house!';
   } else if (winners.length) {
     const w = winners[0];
-    winEl.innerHTML = '👑 WINNER: ' + w.name + ' — Score: ' + w.finalScore + ' 👑';
+    const potShare = Math.floor(msg.pot / winners.length);
+    const iWonThis = w.id === mp.myId;
+    const wonTag   = iWonThis ? (msg.isSinglePlayer ? ' (+' + potShare + ' practice tokens)' : ' +' + potShare + ' tokens!') : '';
+    winEl.innerHTML = '👑 WINNER: ' + w.name + ' — Score: ' + w.finalScore + wonTag + ' 👑';
   } else {
     winEl.textContent = 'No winner this round';
+  }
+  if (msg.isSinglePlayer) {
+    winEl.innerHTML += '<br><span style="font-size:0.75rem;color:rgba(255,255,255,0.6)">Practice mode — tokens not saved</span>';
   }
   bar.style.display = 'block';
   showMsg('Round over! Next round starting in 5 seconds...');
@@ -747,28 +828,46 @@ function renderOnlineResults(msg) {
 }
 
 function renderOnlineGameOver(msg) {
+  const humanPlayers = msg.players.filter(p => !p.isAI);
   const sorted = [...msg.players].sort((a, b) => b.tokens - a.tokens);
   const title  = document.getElementById('resultsTitle');
   const body   = document.getElementById('resultsBody');
   const btn    = document.getElementById('nextRoundBtn');
-  title.textContent = '🎮 GAME OVER';
-  body.innerHTML = sorted.map(p =>
+
+  if (msg.isSinglePlayer) {
+    title.textContent = '🤖 PRACTICE COMPLETE';
+  } else {
+    title.textContent = '🎮 GAME OVER';
+  }
+
+  let bodyHtml = sorted.map(p =>
     '<div class="score-row ' + (p.tokens === sorted[0].tokens ? 'winner-row' : '') + '">' +
-      '<div class="score-name">' + p.name + (p.id === mp.myId ? ' (You)' : '') + '</div>' +
+      '<div class="score-name">' + p.name + (p.id === mp.myId ? ' (You)' : p.isAI ? ' 🤖' : '') + '</div>' +
       '<div class="score-val">' + p.tokens + '</div>' +
     '</div>'
   ).join('');
+
+  if (msg.isSinglePlayer) {
+    bodyHtml += '<p style="text-align:center;color:var(--muted);margin-top:10px;font-size:0.82rem;">Practice mode — your account balance is unchanged</p>';
+  }
+  body.innerHTML = bodyHtml;
+
   btn.textContent = '🔄 NEW GAME';
   btn.onclick = () => { disconnectWS(); location.reload(); };
   document.getElementById('resultsOverlay').style.display = 'flex';
 
-  if (window.SFX && sorted[0].id === mp.myId) window.SFX.gameWin();
+  if (window.SFX) {
+    if (!msg.isSinglePlayer && sorted[0].id === mp.myId) window.SFX.gameWin();
+    else if (msg.isSinglePlayer) window.SFX.gameWin(); // always celebrate practice
+  }
 
-  // Update saved balance
-  const me = msg.players.find(p => p.id === mp.myId);
-  if (me && auth.sessionToken) {
-    auth.tokens = me.tokens;
-    updateAccountBadge();
+  // Update saved balance (only for real multiplayer)
+  if (!msg.isSinglePlayer) {
+    const me = msg.players.find(p => p.id === mp.myId);
+    if (me && auth.sessionToken) {
+      auth.tokens = me.tokens;
+      updateAccountBadge();
+    }
   }
 }
 

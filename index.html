@@ -197,7 +197,9 @@
         <div id="lobbyConnect">
           <div id="accountBadge" class="account-badge">
             <span id="accountBadgeText"></span>
-            <button onclick="authLogout()" style="margin-left:10px;background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:0.78rem;font-family:inherit;font-weight:700;letter-spacing:0.06em;">SIGN OUT</button>
+            <button onclick="claimDailyBonus()" id="dailyBonusBtn" style="background:linear-gradient(135deg,#f59e1b,#d97706);border:none;border-radius:20px;color:white;cursor:pointer;font-size:0.75rem;font-family:inherit;font-weight:800;letter-spacing:0.06em;padding:4px 12px;">🎁 DAILY BONUS</button>
+            <button onclick="authLogout()" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:0.78rem;font-family:inherit;font-weight:700;letter-spacing:0.06em;">SIGN OUT</button>
+            <div id="dailyBonusFeedback" style="width:100%;text-align:center;font-size:0.78rem;min-height:14px;"></div>
           </div>
           <div class="lobby-row">
             <label>Your Name</label>
@@ -210,6 +212,9 @@
           <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
             <button class="pill-btn pill-btn-roll" id="lobbyCreateBtn" style="flex:1;">🏠 CREATE ROOM</button>
             <button class="pill-btn pill-btn-end"  id="lobbyJoinBtn"   style="flex:1;">🚪 JOIN ROOM</button>
+          </div>
+          <div style="margin-top:8px;">
+            <button class="pill-btn pill-btn-new" id="vsComputerBtn" style="width:100%;">🤖 PRACTICE vs COMPUTER</button>
           </div>
           <div id="lobbyJoinRow" style="display:none;margin-top:10px;">
             <div class="lobby-row">
@@ -242,11 +247,25 @@
         <!-- Player token strip -->
         <div class="players-strip" id="playersStrip"></div>
 
-        <!-- Hidden pot bar (kept for JS compatibility) -->
-        <div class="pot-bar">
-          <div class="pot-amount" id="potAmount" style="display:none">0</div>
-          <div id="roundInfo" style="display:none">Round 1</div>
-          <div id="callInfo" style="display:none"></div>
+        <!-- Hidden elements kept for JS compatibility -->
+        <div id="potAmount" style="display:none">0</div>
+        <div id="roundInfo" style="display:none">Round 1</div>
+        <div id="callInfo" style="display:none"></div>
+
+        <!-- Visible pot & round tracker -->
+        <div class="pot-info-bar">
+          <div class="pot-info-item">
+            <span class="pot-info-label">ROUND</span>
+            <span class="pot-info-value" id="roundInfoDisplay">1</span>
+          </div>
+          <div class="pot-info-center">
+            <span class="pot-icon">🏦</span>
+            <span class="pot-info-value pot-highlight" id="potInfoDisplay">0</span>
+            <span class="pot-info-label">TOKENS IN POT</span>
+          </div>
+          <div id="singlePlayerBadge" class="practice-badge-wrap" style="display:none">
+            <span class="practice-badge">PRACTICE</span>
+          </div>
         </div>
 
         <!-- Opponent cards -->

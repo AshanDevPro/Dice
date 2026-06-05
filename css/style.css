@@ -662,6 +662,63 @@ body::before {
 }
 .next-round-btn:active { transform:translateY(2px); }
 
+/* ═══ POT INFO BAR ═══ */
+.pot-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, rgba(230,62,109,0.08), rgba(245,166,35,0.08));
+  border: 1px solid rgba(245,166,35,0.25);
+  border-radius: 12px;
+  padding: 8px 16px;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+.pot-info-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+.pot-icon { font-size: 1.2rem; }
+.pot-info-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 50px;
+}
+.pot-info-label {
+  font-size: 0.62rem;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.pot-info-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  color: var(--text);
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+.pot-highlight {
+  font-size: 1.6rem;
+  color: var(--gold-bright);
+  text-shadow: 0 0 12px rgba(255,209,102,0.4);
+}
+.practice-badge-wrap { display: flex; align-items: center; }
+.practice-badge {
+  background: linear-gradient(135deg, #5cc8f5, #3a9abf);
+  color: white;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 600px) {
   .die      { width: 50px; height: 50px; }
