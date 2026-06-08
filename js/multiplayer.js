@@ -4,6 +4,22 @@
 //  MULTIPLAYER CLIENT
 // ══════════════════════════════════════════
 
+// ── Wake Lock (keeps phone screen on while waiting) ───────────────────────────
+let _wakeLock = null;
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    _wakeLock = await navigator.wakeLock.request('screen');
+    _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+  } catch {}
+}
+function releaseWakeLock() {
+  if (_wakeLock) { _wakeLock.release().catch(() => {}); _wakeLock = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && mp && mp.gameState) requestWakeLock();
+});
+
 const _wsProto   = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const _wsDefault = _wsProto + '//' + window.location.host;
 
@@ -67,8 +83,11 @@ function authShowLobby() {
   const roomParam = new URLSearchParams(window.location.search).get('room');
   if (roomParam) {
     const codeEl = document.getElementById('lobbyCode');
-    codeEl.value = roomParam.toUpperCase();
+    if (codeEl) codeEl.value = roomParam.toUpperCase();
     document.getElementById('lobbyJoinRow').style.display = 'block';
+    const manualRow = document.getElementById('manualCodeRow');
+    if (manualRow) manualRow.style.display = 'block';
+    fetchAndShowRooms();
   }
 }
 
@@ -250,8 +269,64 @@ function lobbyError(msg) {
 // ── Create / Join buttons ─────────────────────────────────────────────────────
 document.getElementById('lobbyJoinBtn').addEventListener('click', () => {
   const row = document.getElementById('lobbyJoinRow');
-  row.style.display = row.style.display === 'none' ? 'block' : 'none';
+  if (row.style.display === 'none') {
+    row.style.display = 'block';
+    fetchAndShowRooms();
+  } else {
+    row.style.display = 'none';
+  }
 });
+
+function toggleManualCode() {
+  const row = document.getElementById('manualCodeRow');
+  row.style.display = row.style.display === 'none' ? 'block' : 'none';
+}
+
+async function fetchAndShowRooms() {
+  const listEl = document.getElementById('roomsList');
+  if (!listEl) return;
+  listEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:0.82rem;padding:10px;">Loading rooms...</div>';
+  try {
+    const res  = await fetch('/api/rooms');
+    const data = await res.json();
+    const rooms = data.rooms || [];
+    if (!rooms.length) {
+      listEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:0.82rem;padding:12px;">No rooms available — create one!</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    rooms.forEach(r => {
+      const card = document.createElement('div');
+      card.className = 'room-browser-card';
+      const statusLabel = r.started
+        ? '<span class="room-status-ingame">IN GAME · ROUND ' + r.round + '</span>'
+        : '<span class="room-status-waiting">WAITING</span>';
+      const btnLabel = r.started ? 'JOIN NEXT ROUND' : 'JOIN';
+      const totalPlayers = r.playerCount + r.pendingCount;
+      card.innerHTML =
+        '<div class="room-browser-info">' +
+          '<span class="room-browser-code">' + r.code + '</span>' +
+          '<span class="room-browser-players">👥 ' + totalPlayers + '/' + r.maxPlayers + '</span>' +
+          statusLabel +
+        '</div>' +
+        '<button class="room-browser-join-btn">' + btnLabel + '</button>';
+      card.querySelector('.room-browser-join-btn').onclick = () => {
+        if (mp.connecting) return;
+        mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
+        mp.serverUrl = document.getElementById('lobbyServer').value.trim() || _wsDefault;
+        connectWS(() => {
+          mp.ws.send(JSON.stringify({
+            type: 'join_room', code: r.code, name: mp.myName,
+            sessionToken: auth.sessionToken || null,
+          }));
+        });
+      };
+      listEl.appendChild(card);
+    });
+  } catch {
+    listEl.innerHTML = '<div style="text-align:center;color:#ff6b6b;font-size:0.82rem;padding:10px;">Could not load rooms</div>';
+  }
+}
 
 document.getElementById('lobbyCreateBtn').addEventListener('click', () => {
   if (mp.connecting) return;
@@ -403,6 +478,17 @@ function handleServerMsg(msg) {
       showLobbyWaiting(msg.code, false);
       break;
 
+    case 'waiting_for_round':
+      mp.myId     = msg.playerId;
+      mp.roomCode = msg.code;
+      mp.isHost   = false;
+      showLobbyWaiting(msg.code, false, false);
+      document.getElementById('lobbyStatusMsg').textContent =
+        '⏳ Waiting for Round ' + msg.round + ' to finish — you\'ll join next round!';
+      document.getElementById('shareRoomBtn').style.display = 'none';
+      document.getElementById('lobbyStartBtn').style.display = 'none';
+      break;
+
     case 'player_joined':
       renderLobbyPlayers(msg.players);
       if (mp.isHost && !mp.isSinglePlayer) {
@@ -429,6 +515,7 @@ function handleServerMsg(msg) {
       document.getElementById('resultsBar').style.display   = 'none';
       document.getElementById('resultsOverlay').style.display = 'none';
       showMsg('Round ' + msg.round + ' started! Ante collected.');
+      requestWakeLock();
       break;
 
     case 'snapshot':
@@ -742,25 +829,51 @@ function showOnlineBetting(currentBet, bettingPhase) {
   document.getElementById('activeBoard').style.display  = 'none';
   document.getElementById('bettingPlayerName').textContent = isAfterRoll ? 'Place Your Bet' : 'Your Action';
 
+  // Hand status reminder — how many dice slots remain to fill
+  const qualLeft  = (me.qualifyHand.includes(1) ? 0 : 1) + (me.qualifyHand.includes(4) ? 0 : 1);
+  const scoreLeft = 4 - (me.scoringHand ? me.scoringHand.length : 0);
+  const slotsLeft = qualLeft + scoreLeft;
+  const handStatusEl = document.getElementById('betHandStatus');
+  if (handStatusEl) {
+    const qualStr = me.qualifyHand.includes(1) && me.qualifyHand.includes(4)
+      ? '✅ Qualified'
+      : (me.qualifyHand.includes(1) ? '🔑 Have 1 — need 4' : me.qualifyHand.includes(4) ? '🔑 Have 4 — need 1' : '🔑 Need 1 and 4');
+    handStatusEl.textContent = qualStr + ' · Scoring: ' + (me.scoringHand ? me.scoringHand.length : 0) + '/4 · ' + slotsLeft + ' dice slot' + (slotsLeft !== 1 ? 's' : '') + ' remaining';
+  }
+
   let betAmt = Math.max(10, callAmt);
-  document.getElementById('betDisplay').textContent = betAmt;
+
+  const betInput = document.getElementById('betDisplay');
+  betInput.value = betAmt;
+  betInput.max   = me.tokens;
+
+  const syncBet = () => {
+    const raw = parseInt(betInput.value) || 10;
+    betAmt = Math.max(10, Math.min(me.tokens, Math.round(raw / 10) * 10));
+    betInput.value = betAmt;
+  };
+  betInput.oninput = () => {
+    const raw = parseInt(betInput.value);
+    if (!isNaN(raw)) betAmt = Math.max(10, Math.min(me.tokens, raw));
+  };
+  betInput.onblur = syncBet;
 
   document.getElementById('betMinus').onclick = () => {
     betAmt = Math.max(10, betAmt - 10);
-    document.getElementById('betDisplay').textContent = betAmt;
+    betInput.value = betAmt;
   };
   document.getElementById('betPlus').onclick = () => {
     betAmt = Math.min(me.tokens, betAmt + 10);
-    document.getElementById('betDisplay').textContent = betAmt;
+    betInput.value = betAmt;
   };
 
   const pre = document.getElementById('betPresets');
   pre.innerHTML = '';
-  [10, 25, 50, 100].forEach(v => {
+  [10, 50, 100, 250, 500, 1000].forEach(v => {
     if (v > me.tokens) return;
     const b = document.createElement('button');
     b.className = 'preset-btn'; b.textContent = v;
-    b.onclick = () => { betAmt = v; document.getElementById('betDisplay').textContent = betAmt; };
+    b.onclick = () => { betAmt = v; betInput.value = betAmt; };
     pre.appendChild(b);
   });
 
@@ -773,7 +886,7 @@ function showOnlineBetting(currentBet, bettingPhase) {
 
   document.getElementById('checkBtn').onclick = () => { if (window.SFX) window.SFX.bet(); sendBet('check', 0); };
   document.getElementById('callBtn').onclick  = () => { if (window.SFX) window.SFX.bet(); sendBet('call',  callAmt); };
-  document.getElementById('raiseBtn').onclick = () => { if (window.SFX) window.SFX.bet(); sendBet('raise', betAmt); };
+  document.getElementById('raiseBtn').onclick = () => { syncBet(); if (window.SFX) window.SFX.bet(); sendBet('raise', betAmt); };
   document.getElementById('foldBtn').onclick  = () => sendBet('fold', 0);
 }
 
@@ -855,6 +968,7 @@ function renderOnlineGameOver(msg) {
   btn.textContent = '🔄 NEW GAME';
   btn.onclick = () => { disconnectWS(); location.reload(); };
   document.getElementById('resultsOverlay').style.display = 'flex';
+  releaseWakeLock();
 
   if (window.SFX) {
     if (!msg.isSinglePlayer && sorted[0].id === mp.myId) window.SFX.gameWin();
@@ -897,5 +1011,32 @@ _origEndBtn.addEventListener('click', () => {
   if (!isOnlineMode()) return;
   mp.ws.send(JSON.stringify({ type: 'end_turn' }));
 });
+
+// ── Token packs ───────────────────────────────────────────────────────────────
+function openTokenPacks() {
+  const modal = document.getElementById('tokenPacksModal');
+  if (!modal) return;
+  const note = document.getElementById('tokenPacksLoginNote');
+  if (note) note.style.display = (!auth.sessionToken) ? 'block' : 'none';
+  modal.style.display = 'flex';
+}
+function closeTokenPacks() {
+  const modal = document.getElementById('tokenPacksModal');
+  if (modal) modal.style.display = 'none';
+}
+function tokenPackBuy(tokens, price) {
+  if (!auth.sessionToken) {
+    alert('Please sign in to purchase token packs.');
+    closeTokenPacks();
+    return;
+  }
+  alert('🚧 Payment coming soon!\n\nThis will add ' + tokens.toLocaleString() + ' tokens to your account for ' + price + '.');
+}
+
+// Hide the guest-facing Buy Tokens button for logged-in users (already in badge)
+(function () {
+  const guestBtn = document.getElementById('guestBuyBtn');
+  if (guestBtn && auth.username) guestBtn.style.display = 'none';
+})();
 
 // ANTE, ROLL_COST, MAX_ROLLS, COLORS defined in game.js (loaded before this file)

@@ -139,7 +139,6 @@
   <div class="ad-slot ad-slot-top">📢 Advertisement</div>
 
   <div class="header">
-    <img src="assets/main_img.jpg" class="header-logo" alt="PignusDice">
     <div class="game-title">PIGNUS DICE</div>
     <div class="subtitle">1 • 4 • 24 — Lock a 1 &amp; a 4 — Score highest with 4 dice</div>
     <button class="sound-toggle" id="soundToggleBtn" onclick="toggleSoundBtn()">🔊</button>
@@ -152,7 +151,6 @@
 
       <!-- ══ AUTH SCREEN ══ -->
       <div id="authScreen">
-        <img src="assets/main_img.jpg" class="auth-logo" alt="PignusDice Logo">
         <div class="setup-title">PIGNUS DICE</div>
 
         <div class="auth-tabs">
@@ -198,6 +196,7 @@
           <div id="accountBadge" class="account-badge">
             <span id="accountBadgeText"></span>
             <button onclick="claimDailyBonus()" id="dailyBonusBtn" style="background:linear-gradient(135deg,#f59e1b,#d97706);border:none;border-radius:20px;color:white;cursor:pointer;font-size:0.75rem;font-family:inherit;font-weight:800;letter-spacing:0.06em;padding:4px 12px;">🎁 DAILY BONUS</button>
+            <button onclick="openTokenPacks()" style="background:linear-gradient(135deg,#e63e6d,#c0225a);border:none;border-radius:20px;color:white;cursor:pointer;font-size:0.75rem;font-family:inherit;font-weight:800;letter-spacing:0.06em;padding:4px 12px;">🛒 BUY TOKENS</button>
             <button onclick="authLogout()" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:0.78rem;font-family:inherit;font-weight:700;letter-spacing:0.06em;">SIGN OUT</button>
             <div id="dailyBonusFeedback" style="width:100%;text-align:center;font-size:0.78rem;min-height:14px;"></div>
           </div>
@@ -213,15 +212,30 @@
             <button class="pill-btn pill-btn-roll" id="lobbyCreateBtn" style="flex:1;">🏠 CREATE ROOM</button>
             <button class="pill-btn pill-btn-end"  id="lobbyJoinBtn"   style="flex:1;">🚪 JOIN ROOM</button>
           </div>
-          <div style="margin-top:8px;">
-            <button class="pill-btn pill-btn-new" id="vsComputerBtn" style="width:100%;">🤖 PRACTICE vs COMPUTER</button>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="pill-btn pill-btn-new" id="vsComputerBtn" style="flex:1;">🤖 PRACTICE vs COMPUTER</button>
+            <button class="pill-btn pill-btn-new" onclick="openTokenPacks()" id="guestBuyBtn" style="flex:1;">🛒 BUY TOKENS</button>
           </div>
           <div id="lobbyJoinRow" style="display:none;margin-top:10px;">
-            <div class="lobby-row">
-              <label>Room Code</label>
-              <input type="text" id="lobbyCode" placeholder="e.g. AB3X" maxlength="4" style="text-transform:uppercase;letter-spacing:0.2em;font-size:1.2rem;">
+            <!-- Room browser -->
+            <div id="roomBrowserSection">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">Available Rooms</span>
+                <button id="refreshRoomsBtn" onclick="fetchAndShowRooms()" class="pill-btn pill-btn-new" style="padding:4px 12px;font-size:0.8rem;">🔄 Refresh</button>
+              </div>
+              <div id="roomsList" style="min-height:48px;"></div>
             </div>
-            <button class="pill-btn pill-btn-end" id="lobbyJoinConfirmBtn" style="width:100%;margin-top:8px;">✅ JOIN</button>
+            <!-- Manual code entry (toggle) -->
+            <div style="margin-top:10px;text-align:center;">
+              <button id="enterCodeToggleBtn" onclick="toggleManualCode()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.82rem;font-family:inherit;font-weight:700;letter-spacing:0.06em;text-decoration:underline;">✏️ Have a room code? Enter it here</button>
+            </div>
+            <div id="manualCodeRow" style="display:none;margin-top:8px;">
+              <div class="lobby-row">
+                <label>Room Code</label>
+                <input type="text" id="lobbyCode" placeholder="e.g. AB3X" maxlength="4" style="text-transform:uppercase;letter-spacing:0.2em;font-size:1.2rem;">
+              </div>
+              <button class="pill-btn pill-btn-end" id="lobbyJoinConfirmBtn" style="width:100%;margin-top:8px;">✅ JOIN</button>
+            </div>
           </div>
         </div>
 
@@ -255,7 +269,7 @@
         <!-- Visible pot & round tracker -->
         <div class="pot-info-bar">
           <div class="pot-info-item">
-            <span class="pot-info-label">ROUND</span>
+            <span class="pot-info-label">MATCH</span>
             <span class="pot-info-value" id="roundInfoDisplay">1</span>
           </div>
           <div class="pot-info-center">
@@ -347,7 +361,7 @@
             <div class="mid-bet-title">🪙 BET BEFORE NEXT ROLL</div>
             <div class="mid-bet-row">
               <button class="step-btn" id="midBetMinus">−</button>
-              <div class="bet-display" id="midBetDisplay">10</div>
+              <input type="number" class="bet-display" id="midBetDisplay" value="10" min="10" step="10">
               <button class="step-btn" id="midBetPlus">+</button>
               <span style="font-size:0.72rem;color:var(--muted);" id="midCallInfo"></span>
             </div>
@@ -372,9 +386,10 @@
         <!-- Between-turns betting panel -->
         <div id="bettingPanel">
           <div class="betting-title">🪙 BETTING — <span id="bettingPlayerName"></span></div>
+          <div id="betHandStatus" style="font-size:0.78rem;color:var(--muted);margin-bottom:8px;text-align:center;"></div>
           <div class="bet-controls">
             <button class="step-btn" id="betMinus">−</button>
-            <div class="bet-amount-display" id="betDisplay">10</div>
+            <input type="number" class="bet-amount-display" id="betDisplay" value="10" min="10" step="10">
             <button class="step-btn" id="betPlus">+</button>
           </div>
           <div class="bet-preset-row" id="betPresets"></div>
@@ -394,6 +409,30 @@
 
   <div class="ad-slot ad-slot-bottom">📢 Advertisement</div>
 </div><!-- /app -->
+
+<!-- Token Packs Modal -->
+<div id="tokenPacksModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:200;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeTokenPacks()">
+  <div style="background:#1e1a2e;border:2px solid #e63e6d;border-radius:22px;padding:24px;max-width:400px;width:100%;max-height:90dvh;overflow-y:auto;box-shadow:0 0 40px rgba(230,62,109,0.3);">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.12em;text-align:center;margin-bottom:4px;color:#ffd166;">🪙 BUY TOKENS</div>
+    <div style="text-align:center;font-size:0.82rem;color:#6a5a80;margin-bottom:18px;">Boost your stack with a token pack</div>
+    <div id="tokenPacksLoginNote" style="display:none;text-align:center;background:rgba(230,62,109,0.1);border:1px solid rgba(230,62,109,0.3);border-radius:10px;padding:10px;margin-bottom:14px;font-size:0.85rem;color:#e63e6d;">Sign in to an account to purchase tokens</div>
+    <div class="token-pack-card">
+      <div class="token-pack-info"><div class="token-pack-amount">1,000 Tokens</div><div class="token-pack-price">$0.99</div></div>
+      <button class="token-pack-btn" onclick="tokenPackBuy(1000,'$0.99')">BUY</button>
+    </div>
+    <div class="token-pack-card token-pack-featured">
+      <div class="token-pack-badge">POPULAR</div>
+      <div class="token-pack-info"><div class="token-pack-amount">5,000 Tokens</div><div class="token-pack-price">$3.99</div></div>
+      <button class="token-pack-btn" onclick="tokenPackBuy(5000,'$3.99')">BUY</button>
+    </div>
+    <div class="token-pack-card">
+      <div class="token-pack-badge token-pack-badge-value">BEST VALUE</div>
+      <div class="token-pack-info"><div class="token-pack-amount">15,000 Tokens</div><div class="token-pack-price">$9.99</div></div>
+      <button class="token-pack-btn" onclick="tokenPackBuy(15000,'$9.99')">BUY</button>
+    </div>
+    <button onclick="closeTokenPacks()" class="pill-btn pill-btn-new" style="width:100%;margin-top:16px;justify-content:center;">✕ Close</button>
+  </div>
+</div>
 
 <!-- Results Overlay (full-screen, for game over / next round) -->
 <div id="resultsOverlay">

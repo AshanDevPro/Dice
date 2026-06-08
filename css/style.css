@@ -579,7 +579,10 @@ body::before {
   font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--gold-bright);
   min-width:60px; text-align:center;
   background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:3px 10px;
+  -moz-appearance: textfield; outline: none; width: 80px;
 }
+.bet-display::-webkit-outer-spin-button,
+.bet-display::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .step-btn {
   width:34px; height:34px; border-radius:8px;
   background:var(--surface); border:1px solid var(--border);
@@ -607,7 +610,10 @@ body::before {
   font-family:'Bebas Neue',sans-serif; font-size:1.8rem; color:var(--gold-bright);
   min-width:76px; text-align:center;
   background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:5px 12px;
+  -moz-appearance: textfield; outline: none; width: 100px;
 }
+.bet-amount-display::-webkit-outer-spin-button,
+.bet-amount-display::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .bet-preset-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
 .preset-btn {
   padding:4px 10px; border-radius:7px;
@@ -718,6 +724,84 @@ body::before {
   border-radius: 20px;
   white-space: nowrap;
 }
+
+/* ═══ ROOM BROWSER ═══ */
+.room-browser-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  transition: border-color 0.15s;
+}
+.room-browser-card:hover { border-color: var(--pink); }
+.room-browser-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; }
+.room-browser-code {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 0.2em;
+  color: var(--gold-bright);
+}
+.room-browser-players { font-size: 0.82rem; color: var(--text-dim); font-weight: 700; }
+.room-status-waiting {
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--teal); background: rgba(6,214,160,0.1);
+  border: 1px solid rgba(6,214,160,0.3); border-radius: 20px; padding: 2px 8px;
+}
+.room-status-ingame {
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--gold); background: rgba(245,166,35,0.1);
+  border: 1px solid rgba(245,166,35,0.3); border-radius: 20px; padding: 2px 8px;
+}
+.room-browser-join-btn {
+  padding: 6px 14px; border-radius: 20px; border: none;
+  background: linear-gradient(135deg, #e63e6d, #c0225a);
+  color: white; font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.85rem; letter-spacing: 0.1em; cursor: pointer;
+  transition: all 0.12s; white-space: nowrap; flex-shrink: 0;
+}
+.room-browser-join-btn:hover { filter: brightness(1.15); }
+.room-browser-join-btn:active { transform: translateY(1px); }
+
+/* ═══ TOKEN PACKS ═══ */
+.token-pack-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  position: relative;
+  transition: border-color 0.15s;
+}
+.token-pack-card:hover { border-color: var(--pink); }
+.token-pack-featured { border-color: rgba(245,166,35,0.5); background: rgba(245,166,35,0.05); }
+.token-pack-info { flex: 1; }
+.token-pack-amount { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 0.08em; color: var(--text); }
+.token-pack-price { font-size: 1rem; font-weight: 800; color: var(--gold-bright); margin-top: 2px; }
+.token-pack-badge {
+  position: absolute; top: -8px; left: 14px;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.12em;
+  color: #13101a; background: var(--gold-bright);
+  border-radius: 20px; padding: 2px 8px; text-transform: uppercase;
+}
+.token-pack-badge-value { background: var(--teal); }
+.token-pack-btn {
+  padding: 8px 20px; border-radius: 20px; border: none;
+  background: linear-gradient(135deg, #e63e6d, #c0225a);
+  color: white; font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem; letter-spacing: 0.1em; cursor: pointer;
+  transition: all 0.12s; flex-shrink: 0;
+}
+.token-pack-btn:hover { filter: brightness(1.15); }
+.token-pack-btn:active { transform: translateY(1px); }
 
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 600px) {

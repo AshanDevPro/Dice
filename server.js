@@ -112,6 +112,22 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
+  // ── GET /api/rooms ───────────────────────────────────────────────────────
+  if (req.url === '/api/rooms' && req.method === 'GET') {
+    const publicRooms = Object.values(rooms)
+      .filter(r => !r.isSinglePlayer)
+      .map(r => ({
+        code: r.code,
+        playerCount: r.players.filter(p => !p.isAI).length,
+        maxPlayers: 6,
+        started: r.started,
+        round: r.round,
+        pendingCount: r.pendingPlayers ? r.pendingPlayers.length : 0,
+      }));
+    json(200, { rooms: publicRooms });
+    return;
+  }
+
   // ── POST /api/daily-bonus ────────────────────────────────────────────────
   if (req.url === '/api/daily-bonus' && req.method === 'POST') {
     const token = req.headers['authorization']?.replace('Bearer ', '');
@@ -193,7 +209,7 @@ const COLORS = ['#e63e6d','#06d6a0','#f59e1b','#5cc8f5','#b06dff','#ff9a3c'];
 
 function createRoom(code, hostClient, startTokens) {
   return {
-    code, clients: [], players: [], pot: 0, round: 1, turnPlayerId: null,
+    code, clients: [], players: [], pendingPlayers: [], pot: 0, round: 1, turnPlayerId: null,
     phase: 'lobby', currentBet: 0, startTokens: startTokens || START_TOKENS,
     bettingQueue: [], bettingPhase: 'before_roll', started: false, subRound: 1,
     isSinglePlayer: false,
@@ -214,6 +230,17 @@ function canStillRoll(p) {
 }
 
 function startRound(room) {
+  // Promote any pending players who joined during the last round
+  if (room.pendingPlayers && room.pendingPlayers.length > 0) {
+    room.pendingPlayers.forEach(p => {
+      room.players.push(p);
+      const c = room.clients.find(cl => cl.id === p.id);
+      if (c) sendTo(c, { type: 'room_joined', code: room.code, playerId: p.id });
+    });
+    room.pendingPlayers = [];
+    broadcast(room, { type: 'player_joined', players: room.players.map(p => ({ id: p.id, name: p.name, color: p.color, isAI: p.isAI || false })) });
+  }
+
   room.pot = 0; room.currentBet = 0; room.phase = 'roll1';
   room.subRound = 1; room.bettingPhase = 'before_roll';
   const active = room.players.filter(p => p.tokens > 0);
@@ -677,10 +704,8 @@ wss.on('connection', ws => {
 
       case 'join_room': {
         const room = rooms[msg.code];
-        if (!room)                    { sendTo(client, { type:'error', msg:'Room not found' }); break; }
-        if (room.isSinglePlayer)      { sendTo(client, { type:'error', msg:'That is a private practice game' }); break; }
-        if (room.started)             { sendTo(client, { type:'error', msg:'Game already started' }); break; }
-        if (room.players.length >= 6) { sendTo(client, { type:'error', msg:'Room full' }); break; }
+        if (!room)               { sendTo(client, { type:'error', msg:'Room not found' }); break; }
+        if (room.isSinglePlayer) { sendTo(client, { type:'error', msg:'That is a private practice game' }); break; }
 
         const uKey     = msg.sessionToken && sessions[msg.sessionToken];
         const acct     = uKey && users[uKey];
@@ -690,17 +715,37 @@ wss.on('connection', ws => {
         client.roomCode = room.code;
         client.name     = name;
         client.userKey  = uKey || null;
-        room.clients.push(client);
-        const colorIdx = room.players.length % COLORS.length;
-        room.players.push({
-          id: client.id, name,
-          tokens: startTok, color: COLORS[colorIdx], colorIdx,
-          qualifyHand:[], scoringHand:[], currentDice:[], selectedIdx:[],
-          rollsUsed:0, mustLockBeforeRoll:false,
-          finalScore:0, folded:false, qualified:false, roundBet:0,
-        });
-        sendTo(client, { type:'room_joined', code: room.code, playerId: client.id });
-        broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color})) });
+
+        if (room.started) {
+          // Game in progress — add as pending (joins at next round)
+          const totalSlots = room.players.length + (room.pendingPlayers ? room.pendingPlayers.length : 0);
+          if (totalSlots >= 6) { sendTo(client, { type:'error', msg:'Room full' }); break; }
+          if (!room.pendingPlayers) room.pendingPlayers = [];
+          const colorIdx = (room.players.length + room.pendingPlayers.length) % COLORS.length;
+          room.pendingPlayers.push({
+            id: client.id, name,
+            tokens: startTok, color: COLORS[colorIdx], colorIdx,
+            qualifyHand:[], scoringHand:[], currentDice:[], selectedIdx:[],
+            rollsUsed:0, mustLockBeforeRoll:false,
+            finalScore:0, folded:false, qualified:false, roundBet:0,
+          });
+          room.clients.push(client);
+          sendTo(client, { type:'waiting_for_round', code: room.code, playerId: client.id, round: room.round });
+          broadcast(room, { type:'player_pending', playerName: name });
+        } else {
+          if (room.players.length >= 6) { sendTo(client, { type:'error', msg:'Room full' }); break; }
+          room.clients.push(client);
+          const colorIdx = room.players.length % COLORS.length;
+          room.players.push({
+            id: client.id, name,
+            tokens: startTok, color: COLORS[colorIdx], colorIdx,
+            qualifyHand:[], scoringHand:[], currentDice:[], selectedIdx:[],
+            rollsUsed:0, mustLockBeforeRoll:false,
+            finalScore:0, folded:false, qualified:false, roundBet:0,
+          });
+          sendTo(client, { type:'room_joined', code: room.code, playerId: client.id });
+          broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color,isAI:p.isAI||false})) });
+        }
         break;
       }
 
