@@ -494,7 +494,15 @@ function aiTakeTurn(room, playerId) {
   if (handFull) { endTurn(room, playerId); return; }
 
   const result = rollDice(room, playerId);
-  if (result.error) { endTurn(room, playerId); return; }
+  if (result.error) {
+    // If we failed to roll but need to lock first, go straight to lock+end
+    if (p.mustLockBeforeRoll) {
+      setTimeout(() => aiLockAndEnd(room, playerId), 500);
+    } else {
+      endTurn(room, playerId);
+    }
+    return;
+  }
   setTimeout(() => aiLockAndEnd(room, playerId), 1000);
 }
 
@@ -530,6 +538,11 @@ function aiLockAndEnd(room, playerId) {
 
   if (selectedIdx.length > 0) {
     lockDice(room, playerId, selectedIdx);
+    setTimeout(() => endTurn(room, playerId), 700);
+  } else if (p.mustLockBeforeRoll && p.currentDice && p.currentDice.length > 0) {
+    // No useful dice (scoring full, no qualifier rolled) — must lock something before ending.
+    // Lock the first die as a discard so the turn can close properly.
+    lockDice(room, playerId, [0]);
     setTimeout(() => endTurn(room, playerId), 700);
   } else {
     endTurn(room, playerId);
