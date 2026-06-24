@@ -4,7 +4,10 @@
   "description": "PigNusDice — 1•4•24 online dice game",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "create-admin": "node scripts/create-admin.js",
+    "check": "node --check server.js && node --check lib/database.js && node --check js/multiplayer.js && node --check js/admin.js",
+    "test": "node --test"
   },
   "dependencies": {
     "ws": "^8.18.0"

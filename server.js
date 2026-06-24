@@ -7,8 +7,8 @@
 const http   = require('http');
 const fs     = require('fs');
 const path   = require('path');
-const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
+const { LocalDatabase } = require('./lib/database');
 
 const PORT        = process.env.PORT || 3000;
 const ANTE        = 50;
@@ -29,91 +29,135 @@ const MIME = {
   '.svg':  'image/svg+xml',
 };
 
-// ── User accounts (file-backed) ──────────────────────────────────────────────
-const DATA_DIR   = path.join(__dirname, 'data');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
+// ── Self-hosted database and authentication ──────────────────────────────────
+const database = new LocalDatabase(process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, 'data'));
+const users = database.data.users;
+const authAttempts = new Map();
 
-let users    = {};   // lowerKey → { username, passwordHash, salt, tokens }
-let sessions = {};   // sessionToken → lowerKey (in-memory; resets on restart)
+function bearerToken(req) {
+  const header = req.headers.authorization || '';
+  return header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+}
 
-function loadUsers() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    if (fs.existsSync(USERS_FILE)) users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-  } catch { users = {}; }
+function authenticatedUser(req) {
+  return database.getSession(bearerToken(req));
 }
-function saveUsers() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-  } catch (e) { console.error('saveUsers:', e.message); }
-}
-function hashPwd(pwd, salt) {
-  return crypto.pbkdf2Sync(pwd, salt, 10000, 32, 'sha256').toString('hex');
-}
-function makeToken() { return crypto.randomBytes(20).toString('hex'); }
 
-loadUsers();
+function websocketUser(token) {
+  return database.getSession(token, false);
+}
+
+function isRateLimited(req) {
+  const key = req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const recent = (authAttempts.get(key) || []).filter(time => now - time < 15 * 60 * 1000);
+  recent.push(now);
+  authAttempts.set(key, recent);
+  return recent.length > 20;
+}
+
+function bootstrapAdmin() {
+  const username = process.env.ADMIN_USERNAME;
+  const email = process.env.ADMIN_EMAIL;
+  const password = process.env.ADMIN_PASSWORD;
+  if (!username && !email && !password) return;
+  if (!username || !email || !password) {
+    console.warn('Admin not created: set ADMIN_USERNAME, ADMIN_EMAIL, and ADMIN_PASSWORD together.');
+    return;
+  }
+  let found = database.findUserByIdentifier(username) || database.findUserByIdentifier(email);
+  if (!found) {
+    const created = database.createUser({ username, email, password, role: 'admin' });
+    if (created.error) console.warn(`Admin not created: ${created.error}`);
+    else console.log(`Admin account created: ${created.user.username}`);
+    return;
+  }
+  if (found.user.role !== 'admin') {
+    found.user.role = 'admin';
+    found.user.updatedAt = new Date().toISOString();
+    database.recordEvent('account.promoted', found.key, { role: 'admin' });
+  }
+}
+
+bootstrapAdmin();
 
 // ── HTTP server ──────────────────────────────────────────────────────────────
 function readBody(req, cb) {
   let body = '';
-  req.on('data', d => { body += d; if (body.length > 8192) req.destroy(); });
+  req.on('data', d => { body += d; if (body.length > 65536) req.destroy(); });
   req.on('end',  () => { try { cb(JSON.parse(body)); } catch { cb(null); } });
 }
 
 const httpServer = http.createServer((req, res) => {
+  const requestUrl = new URL(req.url, 'http://localhost');
+  const pathname = requestUrl.pathname;
   const json = (code, obj) => {
-    res.writeHead(code, { 'Content-Type': 'application/json' });
+    res.writeHead(code, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
     res.end(JSON.stringify(obj));
   };
 
   // ── POST /api/register ───────────────────────────────────────────────────
-  if (req.url === '/api/register' && req.method === 'POST') {
+  if (pathname === '/api/register' && req.method === 'POST') {
+    if (isRateLimited(req)) return json(429, { error: 'Too many attempts. Try again later.' });
     readBody(req, data => {
       if (!data) return json(400, { error: 'Bad request' });
-      const key = data.username?.trim().toLowerCase();
-      if (!key || key.length < 2 || key.length > 20 || !data.password)
-        return json(400, { error: 'Username (2–20 chars) and password required' });
-      if (users[key]) return json(409, { error: 'Username already taken' });
-      const salt = crypto.randomBytes(16).toString('hex');
-      const user = { username: data.username.trim(), passwordHash: hashPwd(data.password, salt), salt, tokens: START_TOKENS };
-      users[key] = user;
-      const token = makeToken();
-      sessions[token] = key;
-      saveUsers();
-      json(200, { sessionToken: token, username: user.username, tokens: user.tokens });
+      const created = database.createUser({
+        username: data.username,
+        email: data.email,
+        password: data.password,
+      });
+      if (created.error) {
+        const conflict = /taken|registered/.test(created.error);
+        return json(conflict ? 409 : 400, { error: created.error });
+      }
+      const token = database.issueSession(created.key);
+      json(201, { sessionToken: token, user: database.publicUser(created.user) });
     });
     return;
   }
 
   // ── POST /api/login ──────────────────────────────────────────────────────
-  if (req.url === '/api/login' && req.method === 'POST') {
+  if (pathname === '/api/login' && req.method === 'POST') {
+    if (isRateLimited(req)) return json(429, { error: 'Too many attempts. Try again later.' });
     readBody(req, data => {
       if (!data) return json(400, { error: 'Bad request' });
-      const key  = data.username?.trim().toLowerCase();
-      const user = key && users[key];
-      if (!user || hashPwd(data.password || '', user.salt) !== user.passwordHash)
-        return json(401, { error: 'Invalid username or password' });
-      const token = makeToken();
-      sessions[token] = key;
-      json(200, { sessionToken: token, username: user.username, tokens: user.tokens });
+      const found = database.findUserByIdentifier(data.identifier || data.username);
+      if (!found || !database.verifyPassword(found, data.password || '')) {
+        return json(401, { error: 'Invalid email, username, or password' });
+      }
+      if (found.user.status !== 'active') return json(403, { error: 'This account is disabled' });
+      found.user.lastLoginAt = new Date().toISOString();
+      found.user.lastSeenAt = found.user.lastLoginAt;
+      found.user.stats ||= {};
+      found.user.stats.logins = (found.user.stats.logins || 0) + 1;
+      database.recordEvent('account.login', found.key, {}, false);
+      const token = database.issueSession(found.key);
+      json(200, { sessionToken: token, user: database.publicUser(found.user) });
     });
     return;
   }
 
+  // ── POST /api/logout ─────────────────────────────────────────────────────
+  if (pathname === '/api/logout' && req.method === 'POST') {
+    database.revokeSession(bearerToken(req));
+    json(200, { ok: true });
+    return;
+  }
+
   // ── GET /api/me ──────────────────────────────────────────────────────────
-  if (req.url === '/api/me' && req.method === 'GET') {
-    const token = req.headers['authorization']?.replace('Bearer ', '');
-    const key   = token && sessions[token];
-    const user  = key && users[key];
-    if (!user) return json(401, { error: 'Not authenticated' });
-    json(200, { username: user.username, tokens: user.tokens });
+  if (pathname === '/api/me' && req.method === 'GET') {
+    const auth = authenticatedUser(req);
+    if (!auth) return json(401, { error: 'Not authenticated' });
+    json(200, { user: database.publicUser(auth.user) });
     return;
   }
 
   // ── GET /api/rooms ───────────────────────────────────────────────────────
-  if (req.url === '/api/rooms' && req.method === 'GET') {
+  if (pathname === '/api/rooms' && req.method === 'GET') {
     const publicRooms = Object.values(rooms)
       .filter(r => !r.isSinglePlayer)
       .map(r => ({
@@ -129,11 +173,10 @@ const httpServer = http.createServer((req, res) => {
   }
 
   // ── POST /api/daily-bonus ────────────────────────────────────────────────
-  if (req.url === '/api/daily-bonus' && req.method === 'POST') {
-    const token = req.headers['authorization']?.replace('Bearer ', '');
-    const key   = token && sessions[token];
-    const user  = key && users[key];
-    if (!user) return json(401, { error: 'Not authenticated' });
+  if (pathname === '/api/daily-bonus' && req.method === 'POST') {
+    const auth = authenticatedUser(req);
+    if (!auth) return json(401, { error: 'Not authenticated' });
+    const { key, user } = auth;
     const now     = Date.now();
     const last    = user.lastDailyBonus || 0;
     const msLeft  = (last + 24 * 60 * 60 * 1000) - now;
@@ -143,18 +186,111 @@ const httpServer = http.createServer((req, res) => {
     }
     user.tokens += DAILY_BONUS;
     user.lastDailyBonus = now;
-    saveUsers();
+    user.updatedAt = new Date().toISOString();
+    database.recordEvent('tokens.daily_bonus', key, { amount: DAILY_BONUS, balance: user.tokens });
     json(200, { tokensAdded: DAILY_BONUS, tokens: user.tokens });
     return;
   }
 
+  // ── Admin API ────────────────────────────────────────────────────────────
+  if (pathname === '/api/admin/dashboard' && req.method === 'GET') {
+    const auth = authenticatedUser(req);
+    if (!auth) return json(401, { error: 'Not authenticated' });
+    if (auth.user.role !== 'admin') return json(403, { error: 'Administrator access required' });
+    const allUsers = Object.values(users).map(user => database.publicUser(user));
+    const activeSince = Date.now() - 24 * 60 * 60 * 1000;
+    const liveRooms = Object.values(rooms).map(room => ({
+      code: room.code,
+      mode: room.isSinglePlayer ? 'practice' : 'multiplayer',
+      started: room.started,
+      round: room.round,
+      playerCount: room.players.length,
+      players: room.players.map(player => player.name),
+    }));
+    json(200, {
+      summary: {
+        totalUsers: allUsers.length,
+        activeUsers24h: allUsers.filter(user => Date.parse(user.lastSeenAt || 0) >= activeSince).length,
+        totalGames: database.data.games.length,
+        liveRooms: liveRooms.length,
+        totalTokens: allUsers.reduce((sum, user) => sum + (user.tokens || 0), 0),
+      },
+      users: allUsers.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+      games: database.data.games.slice(0, 100),
+      events: database.data.events.slice(0, 200),
+      liveRooms,
+      database: { type: 'local-json', updatedAt: database.data.updatedAt },
+    });
+    return;
+  }
+
+  const adminUserMatch = pathname.match(/^\/api\/admin\/users\/([0-9a-f-]+)$/i);
+  if (adminUserMatch && req.method === 'PATCH') {
+    const auth = authenticatedUser(req);
+    if (!auth) return json(401, { error: 'Not authenticated' });
+    if (auth.user.role !== 'admin') return json(403, { error: 'Administrator access required' });
+    const found = database.findUserById(adminUserMatch[1]);
+    if (!found) return json(404, { error: 'User not found' });
+    readBody(req, data => {
+      if (!data) return json(400, { error: 'Bad request' });
+      if (data.tokens !== undefined) {
+        const tokens = Number(data.tokens);
+        if (!Number.isInteger(tokens) || tokens < 0 || tokens > 1000000000) {
+          return json(400, { error: 'Tokens must be a whole number from 0 to 1,000,000,000' });
+        }
+        found.user.tokens = tokens;
+      }
+      if (data.status !== undefined) {
+        if (!['active', 'disabled'].includes(data.status)) return json(400, { error: 'Invalid status' });
+        if (found.user.id === auth.user.id && data.status === 'disabled') {
+          return json(400, { error: 'You cannot disable your own admin account' });
+        }
+        found.user.status = data.status;
+        if (data.status === 'disabled') database.revokeUserSessions(found.key);
+      }
+      found.user.updatedAt = new Date().toISOString();
+      database.recordEvent('admin.user_updated', auth.key, {
+        targetUserId: found.user.id,
+        targetUsername: found.user.username,
+        tokens: found.user.tokens,
+        status: found.user.status,
+      });
+      json(200, { user: database.publicUser(found.user) });
+    });
+    return;
+  }
+
   // ── Static files ─────────────────────────────────────────────────────────
-  let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
+  if (!['GET', 'HEAD'].includes(req.method)) {
+    res.writeHead(405, { Allow: 'GET, HEAD' });
+    res.end('Method not allowed');
+    return;
+  }
+  let requestedFile;
+  try {
+    requestedFile = pathname === '/' ? 'index.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
+  } catch {
+    res.writeHead(400); res.end('Bad request'); return;
+  }
+  const filePath = path.resolve(__dirname, requestedFile);
+  const privateRoots = ['data', 'lib', '.git'];
+  const firstPart = requestedFile.split(/[\\/]/)[0];
+  if (!filePath.startsWith(`${path.resolve(__dirname)}${path.sep}`) || privateRoots.includes(firstPart)) {
+    res.writeHead(404); res.end('Not found'); return;
+  }
   const ext    = path.extname(filePath);
   const mime   = MIME[ext] || 'application/octet-stream';
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); }
-    else     { res.writeHead(200, { 'Content-Type': mime }); res.end(data); }
+    else {
+      res.writeHead(200, {
+        'Content-Type': `${mime}${['.html', '.css', '.js'].includes(ext) ? '; charset=utf-8' : ''}`,
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'same-origin',
+        'X-Frame-Options': 'DENY',
+      });
+      res.end(req.method === 'HEAD' ? undefined : data);
+    }
   });
 });
 
@@ -166,9 +302,27 @@ function saveRoomTokens(room) {
   room.clients.forEach(c => {
     if (!c.userKey || !users[c.userKey]) return;
     const p = room.players.find(pl => pl.id === c.id);
-    if (p) { users[c.userKey].tokens = Math.max(p.tokens, 0); dirty = true; }
+    if (p) {
+      users[c.userKey].tokens = Math.max(p.tokens, 0);
+      users[c.userKey].updatedAt = new Date().toISOString();
+      dirty = true;
+    }
   });
-  if (dirty) saveUsers();
+  if (dirty) database.save();
+}
+
+function startGameRecord(room, mode) {
+  if (room.gameId) return;
+  const game = database.createGame(room, mode);
+  room.gameId = game.id;
+  room.recordedPot = 0;
+  room.clients.forEach(client => {
+    const user = client.userKey && users[client.userKey];
+    if (!user) return;
+    user.stats ||= {};
+    user.stats.gamesPlayed = (user.stats.gamesPlayed || 0) + 1;
+  });
+  database.recordEvent('game.started', null, { gameId: game.id, roomCode: room.code, mode });
 }
 
 function makeCode() {
@@ -628,6 +782,7 @@ function resolveRound(room) {
 
   let winners = [];
   const potWentToHouse = eligible.length === 0;
+  const resolvedPot = room.pot;
 
   if (eligible.length) {
     const best = eligible[0].finalScore;
@@ -642,6 +797,26 @@ function resolveRound(room) {
     pot: room.pot, potWentToHouse, isSinglePlayer: room.isSinglePlayer || false,
   });
 
+  if (room.gameId) {
+    room.recordedPot = (room.recordedPot || 0) + resolvedPot;
+    const game = database.data.games.find(item => item.id === room.gameId);
+    database.updateGame(room.gameId, {
+      rounds: room.round,
+      totalPot: room.recordedPot,
+      lastRoundAt: new Date().toISOString(),
+    });
+    room.clients.forEach(client => {
+      const user = client.userKey && users[client.userKey];
+      if (!user) return;
+      user.stats ||= {};
+      user.stats.roundsPlayed = (user.stats.roundsPlayed || 0) + 1;
+      if (winners.some(winner => winner.id === client.id)) {
+        user.stats.roundsWon = (user.stats.roundsWon || 0) + 1;
+      }
+    });
+    if (game) database.save();
+  }
+
   room.pot = 0;
   room.round++;
   if (!room.isSinglePlayer) saveRoomTokens(room);
@@ -650,6 +825,27 @@ function resolveRound(room) {
 
 function endGame(room) {
   if (!room.isSinglePlayer) saveRoomTokens(room);
+  if (room.gameId) {
+    const highest = Math.max(...room.players.map(player => player.tokens));
+    const winnerUserIds = room.clients
+      .filter(client => room.players.some(player => player.id === client.id && player.tokens === highest))
+      .map(client => users[client.userKey]?.id)
+      .filter(Boolean);
+    room.clients.forEach(client => {
+      const user = client.userKey && users[client.userKey];
+      if (user && winnerUserIds.includes(user.id)) {
+        user.stats ||= {};
+        user.stats.gamesWon = (user.stats.gamesWon || 0) + 1;
+      }
+    });
+    database.updateGame(room.gameId, {
+      status: 'completed',
+      rounds: Math.max(0, room.round - 1),
+      winnerUserIds,
+      endedAt: new Date().toISOString(),
+    });
+    database.recordEvent('game.completed', null, { gameId: room.gameId, roomCode: room.code, winnerUserIds });
+  }
   broadcast(room, {
     type: 'game_over',
     players: room.players.map(p => ({ id:p.id, name:p.name, tokens:p.tokens, isAI: p.isAI || false })),
@@ -670,10 +866,12 @@ wss.on('connection', ws => {
     switch (msg.type) {
 
       case 'create_room': {
-        const uKey     = msg.sessionToken && sessions[msg.sessionToken];
-        const acct     = uKey && users[uKey];
-        const name     = acct ? acct.username : (msg.name || 'Player');
-        const startTok = acct ? Math.max(acct.tokens, 100) : (msg.startTokens || START_TOKENS);
+        const authUser = websocketUser(msg.sessionToken);
+        if (!authUser) { sendTo(client, { type:'error', msg:'Please sign in again' }); break; }
+        const uKey     = authUser.key;
+        const acct     = authUser.user;
+        const name     = acct.username;
+        const startTok = Math.max(acct.tokens, 100);
         const vsComp   = !!msg.vsComputer;
 
         const code = makeCode();
@@ -694,6 +892,7 @@ wss.on('connection', ws => {
         });
         sendTo(client, { type:'room_created', code, playerId: client.id, isSinglePlayer: vsComp });
         broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color,isAI:p.isAI||false})) });
+        database.recordEvent('room.created', uKey, { roomCode: code, mode: vsComp ? 'practice' : 'multiplayer' });
 
         if (vsComp) {
           // Add AI opponent and start immediately
@@ -709,6 +908,7 @@ wss.on('connection', ws => {
           });
           broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color,isAI:p.isAI||false})) });
           room.started = true;
+          startGameRecord(room, 'practice');
           broadcast(room, { type:'game_starting', isSinglePlayer: true });
           setTimeout(() => startRound(room), 1500);
         }
@@ -720,10 +920,12 @@ wss.on('connection', ws => {
         if (!room)               { sendTo(client, { type:'error', msg:'Room not found' }); break; }
         if (room.isSinglePlayer) { sendTo(client, { type:'error', msg:'That is a private practice game' }); break; }
 
-        const uKey     = msg.sessionToken && sessions[msg.sessionToken];
-        const acct     = uKey && users[uKey];
-        const name     = acct ? acct.username : (msg.name || `Player ${room.players.length+1}`);
-        const startTok = acct ? Math.max(acct.tokens, 100) : room.startTokens;
+        const authUser = websocketUser(msg.sessionToken);
+        if (!authUser) { sendTo(client, { type:'error', msg:'Please sign in again' }); break; }
+        const uKey     = authUser.key;
+        const acct     = authUser.user;
+        const name     = acct.username;
+        const startTok = Math.max(acct.tokens, 100);
 
         client.roomCode = room.code;
         client.name     = name;
@@ -759,6 +961,7 @@ wss.on('connection', ws => {
           sendTo(client, { type:'room_joined', code: room.code, playerId: client.id });
           broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color,isAI:p.isAI||false})) });
         }
+        database.recordEvent('room.joined', uKey, { roomCode: room.code, pending: room.started });
         break;
       }
 
@@ -767,6 +970,7 @@ wss.on('connection', ws => {
         if (!room || room.players[0].id !== client.id) break; // only host
         if (room.players.length < 2) { sendTo(client, { type:'error', msg:'Need at least 2 players' }); break; }
         room.started = true;
+        startGameRecord(room, 'multiplayer');
         broadcast(room, { type:'game_starting' });
         setTimeout(() => startRound(room), 1000);
         break;

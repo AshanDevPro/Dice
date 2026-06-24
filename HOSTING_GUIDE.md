@@ -1,5 +1,10 @@
-# PigNusDice — Hosting & Online Play Guide
-## Deploy to Railway (Free, No VPS Needed)
+# PigNusDice — Legacy Railway Guide
+
+> This guide is retained only for older deployments. The current version stores its own accounts and game database on persistent local disk. A default Railway deployment may use an ephemeral filesystem and is therefore not suitable unless you configure a persistent volume and set `DATA_DIR` to that volume.
+>
+> For the recommended owner-controlled VPS setup, administrator creation, HTTPS, and database backups, follow [SELF_HOSTING.md](SELF_HOSTING.md).
+
+## Deploy to Railway (persistent volume required)
 
 Railway runs your Node.js server for free — no server management, no SSH, no VPS.
 
@@ -80,18 +85,18 @@ Whenever you change game files:
 
 ### Host (the person starting the game)
 
-1. Open **http://PigNusDice.com** in a browser
-2. Enter your name
+1. Open **https://PigNusDice.com** in a browser
+2. Register with an email, username, and password, or sign in to an existing account
 3. The Server field should already be filled in — leave it as-is
 4. Tap **CREATE ROOM**
 5. You'll see a **4-letter room code** (e.g. `AB3X`) — share this with friends
 6. Wait for friends to join — their names appear in the list
 7. When everyone is ready, tap **START GAME**
 
-### Guest (joining an existing game)
+### Player joining an existing game
 
-1. Open **http://PigNusDice.com** in your browser
-2. Enter your name
+1. Open **https://PigNusDice.com** in your browser
+2. Register with an email, username, and password, or sign in to an existing account
 3. Tap **JOIN ROOM**
 4. Type the **4-letter code** the host gave you
 5. Tap **JOIN** — you'll appear in the host's player list

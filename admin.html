@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PignusDice Admin</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <section id="adminLogin" class="login-card">
+      <div class="brand-mark">P</div>
+      <p class="eyebrow">PignusDice</p>
+      <h1>Admin sign in</h1>
+      <p class="muted">Use the administrator account stored on your game server.</p>
+      <form id="adminLoginForm">
+        <label for="adminIdentifier">Email or username</label>
+        <input id="adminIdentifier" name="identifier" autocomplete="username" required>
+        <label for="adminPassword">Password</label>
+        <input id="adminPassword" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Open dashboard</button>
+      </form>
+      <p id="adminLoginError" class="error" role="alert"></p>
+      <a class="back-link" href="/">← Back to game</a>
+    </section>
+
+    <section id="dashboard" hidden>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">PignusDice control room</p>
+          <h1>Game dashboard</h1>
+          <p id="databaseStatus" class="muted"></p>
+        </div>
+        <div class="topbar-actions">
+          <a href="/">Open game</a>
+          <button id="refreshDashboard" class="secondary">Refresh</button>
+          <button id="adminLogout" class="danger">Sign out</button>
+        </div>
+      </header>
+
+      <div id="dashboardError" class="banner error" hidden></div>
+
+      <section id="summaryCards" class="summary-grid" aria-label="Game summary"></section>
+
+      <nav class="tabs" aria-label="Dashboard sections">
+        <button class="tab active" data-panel="usersPanel">Users</button>
+        <button class="tab" data-panel="gamesPanel">Games</button>
+        <button class="tab" data-panel="activityPanel">Activity</button>
+        <button class="tab" data-panel="roomsPanel">Live rooms</button>
+      </nav>
+
+      <section id="usersPanel" class="panel">
+        <div class="panel-heading">
+          <div><h2>Users</h2><p>Registered accounts and saved balances</p></div>
+          <input id="userSearch" type="search" placeholder="Search name or email">
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Tokens</th><th>Games</th><th>Last seen</th><th>Joined</th><th>Actions</th></tr></thead>
+          <tbody id="usersTable"></tbody>
+        </table></div>
+      </section>
+
+      <section id="gamesPanel" class="panel" hidden>
+        <div class="panel-heading"><div><h2>Games</h2><p>Recent game history stored locally</p></div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Started</th><th>Room</th><th>Mode</th><th>Status</th><th>Players</th><th>Rounds</th><th>Total pot</th></tr></thead>
+          <tbody id="gamesTable"></tbody>
+        </table></div>
+      </section>
+
+      <section id="activityPanel" class="panel" hidden>
+        <div class="panel-heading"><div><h2>Activity</h2><p>Recent account and game events</p></div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Time</th><th>Event</th><th>User</th><th>Details</th></tr></thead>
+          <tbody id="eventsTable"></tbody>
+        </table></div>
+      </section>
+
+      <section id="roomsPanel" class="panel" hidden>
+        <div class="panel-heading"><div><h2>Live rooms</h2><p>Rooms currently in server memory</p></div></div>
+        <div id="roomsGrid" class="rooms-grid"></div>
+      </section>
+    </section>
+  </main>
+  <script src="js/admin.js"></script>
+</body>
+</html>

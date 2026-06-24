@@ -40,8 +40,9 @@ let mp = {
 const auth = {
   sessionToken: localStorage.getItem('pignusDiceSession') || null,
   username:     null,
+  email:        null,
+  role:         null,
   tokens:       null,
-  isGuest:      false,
 };
 
 // ── Sound toggle ──────────────────────────────────────────────────────────────
@@ -71,9 +72,6 @@ function authShowLobby() {
     nameEl.value    = auth.username;
     nameEl.readOnly = true;
     nameEl.style.opacity = '0.6';
-  } else {
-    nameEl.readOnly = false;
-    nameEl.style.opacity = '';
   }
   // Show account badge
   updateAccountBadge();
@@ -102,6 +100,8 @@ function updateAccountBadge() {
     badge.style.justifyContent = 'center';
     badge.style.flexWrap = 'wrap';
     badge.style.gap = '8px';
+    const adminLink = document.getElementById('adminPanelLink');
+    if (adminLink) adminLink.style.display = auth.role === 'admin' ? '' : 'none';
   } else {
     badge.style.display = 'none';
   }
@@ -137,17 +137,25 @@ async function claimDailyBonus() {
   }
 }
 
-function authLogout() {
+async function authLogout() {
+  const oldToken = auth.sessionToken;
   auth.sessionToken = null;
   auth.username     = null;
+  auth.email        = null;
+  auth.role         = null;
   auth.tokens       = null;
-  auth.isGuest      = false;
   localStorage.removeItem('pignusDiceSession');
+  if (oldToken) {
+    fetch('/api/logout', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + oldToken },
+    }).catch(() => {});
+  }
   disconnectWS();
   document.getElementById('lobbyScreen').style.display = 'none';
   document.getElementById('authScreen').style.display  = '';
   // Reset auth form fields
-  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginIdentifier').value = '';
   document.getElementById('loginPassword').value = '';
 }
 
@@ -158,10 +166,11 @@ async function authInit() {
       const res  = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + auth.sessionToken } });
       if (res.ok) {
         const data      = await res.json();
-        auth.username   = data.username;
-        auth.tokens     = data.tokens;
-        auth.isGuest    = false;
-        mp.myName       = data.username;
+        auth.username   = data.user.username;
+        auth.email      = data.user.email;
+        auth.role       = data.user.role;
+        auth.tokens     = data.user.tokens;
+        mp.myName       = data.user.username;
         authShowLobby();
         return;
       }
@@ -193,22 +202,23 @@ document.getElementById('registerTabBtn').addEventListener('click', () => {
 
 // Login
 document.getElementById('loginBtn').addEventListener('click', async () => {
-  const username = document.getElementById('loginUsername').value.trim();
+  const identifier = document.getElementById('loginIdentifier').value.trim();
   const password = document.getElementById('loginPassword').value;
-  if (!username || !password) { authShowError('Enter username and password'); return; }
+  if (!identifier || !password) { authShowError('Enter your email/username and password'); return; }
   try {
     const res  = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ identifier, password }),
     });
     const data = await res.json();
     if (!res.ok) { authShowError(data.error || 'Login failed'); return; }
     auth.sessionToken = data.sessionToken;
-    auth.username     = data.username;
-    auth.tokens       = data.tokens;
-    auth.isGuest      = false;
-    mp.myName         = data.username;
+    auth.username     = data.user.username;
+    auth.email        = data.user.email;
+    auth.role         = data.user.role;
+    auth.tokens       = data.user.tokens;
+    mp.myName         = data.user.username;
     localStorage.setItem('pignusDiceSession', data.sessionToken);
     authShowLobby();
   } catch { authShowError('Cannot connect to server'); }
@@ -220,36 +230,29 @@ document.getElementById('loginPassword').addEventListener('keypress', e => {
 // Register
 document.getElementById('registerBtn').addEventListener('click', async () => {
   const username = document.getElementById('regUsername').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
   const password = document.getElementById('regPassword').value;
-  if (!username || !password) { authShowError('Enter a username and password'); return; }
+  if (!username || !email || !password) { authShowError('Enter a username, email, and password'); return; }
   try {
     const res  = await fetch('/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, email, password }),
     });
     const data = await res.json();
     if (!res.ok) { authShowError(data.error || 'Registration failed'); return; }
     auth.sessionToken = data.sessionToken;
-    auth.username     = data.username;
-    auth.tokens       = data.tokens;
-    auth.isGuest      = false;
-    mp.myName         = data.username;
+    auth.username     = data.user.username;
+    auth.email        = data.user.email;
+    auth.role         = data.user.role;
+    auth.tokens       = data.user.tokens;
+    mp.myName         = data.user.username;
     localStorage.setItem('pignusDiceSession', data.sessionToken);
     authShowLobby();
   } catch { authShowError('Cannot connect to server'); }
 });
 document.getElementById('regPassword').addEventListener('keypress', e => {
   if (e.key === 'Enter') document.getElementById('registerBtn').click();
-});
-
-// Guest
-document.getElementById('guestBtn').addEventListener('click', () => {
-  auth.isGuest      = true;
-  auth.username     = null;
-  auth.tokens       = null;
-  auth.sessionToken = null;
-  authShowLobby();
 });
 
 // ── Screen helpers ────────────────────────────────────────────────────────────
@@ -1032,11 +1035,5 @@ function tokenPackBuy(tokens, price) {
   }
   alert('🚧 Payment coming soon!\n\nThis will add ' + tokens.toLocaleString() + ' tokens to your account for ' + price + '.');
 }
-
-// Hide the guest-facing Buy Tokens button for logged-in users (already in badge)
-(function () {
-  const guestBtn = document.getElementById('guestBuyBtn');
-  if (guestBtn && auth.username) guestBtn.style.display = 'none';
-})();
 
 // ANTE, ROLL_COST, MAX_ROLLS, COLORS defined in game.js (loaded before this file)

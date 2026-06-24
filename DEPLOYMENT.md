@@ -1,5 +1,7 @@
 # PigNusDice — IONOS Ubuntu 24 Deployment Guide
 
+> Important: this older server guide does not include the new local account database setup. Before deploying, read [SELF_HOSTING.md](SELF_HOSTING.md), create the administrator with `npm run create-admin`, set a persistent `DATA_DIR`, and enable HTTPS. User passwords must never be sent over public plain HTTP.
+
 > **Server IP:** `74.208.242.39`
 > **GitHub Repo:** `https://github.com/AshanDevPro/Dice.git`
 > **Stack:** Node.js + WebSocket (`ws` package)
