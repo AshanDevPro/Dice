@@ -51,11 +51,12 @@
 
       <section id="usersPanel" class="panel">
         <div class="panel-heading">
-          <div><h2>Users</h2><p>Registered accounts and saved balances</p></div>
+          <div><h2>Users</h2><p>Registered accounts, saved balances, and user metadata</p></div>
           <input id="userSearch" type="search" placeholder="Search name or email">
         </div>
+        <div id="userMetaPanel" class="user-meta-panel" hidden></div>
         <div class="table-wrap"><table>
-          <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Tokens</th><th>Games</th><th>Last seen</th><th>Joined</th><th>Actions</th></tr></thead>
+          <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Tokens</th><th>Sessions</th><th>Games</th><th>Last login</th><th>Joined</th><th>Actions</th></tr></thead>
           <tbody id="usersTable"></tbody>
         </table></div>
       </section>

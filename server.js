@@ -81,6 +81,26 @@ function bootstrapAdmin() {
 
 bootstrapAdmin();
 
+function liveRoomsForUser(key) {
+  return Object.values(rooms).flatMap(room => room.clients
+    .filter(client => client.userKey === key)
+    .map(client => {
+      const activePlayer = room.players.find(player => player.id === client.id);
+      const pendingPlayer = (room.pendingPlayers || []).find(player => player.id === client.id);
+      const player = activePlayer || pendingPlayer;
+      return {
+        code: room.code,
+        mode: room.isSinglePlayer ? 'practice' : 'multiplayer',
+        started: room.started,
+        round: room.round,
+        pending: Boolean(pendingPlayer && !activePlayer),
+        playerName: player?.name || client.name || 'Player',
+        tokens: player?.tokens ?? null,
+        folded: Boolean(player?.folded),
+      };
+    }));
+}
+
 // ── HTTP server ──────────────────────────────────────────────────────────────
 function readBody(req, cb) {
   let body = '';
@@ -197,7 +217,9 @@ const httpServer = http.createServer((req, res) => {
     const auth = authenticatedUser(req);
     if (!auth) return json(401, { error: 'Not authenticated' });
     if (auth.user.role !== 'admin') return json(403, { error: 'Administrator access required' });
-    const allUsers = Object.values(users).map(user => database.publicUser(user));
+    const allUsers = Object.entries(users).map(([key, user]) =>
+      database.adminUser(key, user, { liveRooms: liveRoomsForUser(key) })
+    );
     const activeSince = Date.now() - 24 * 60 * 60 * 1000;
     const liveRooms = Object.values(rooms).map(room => ({
       code: room.code,
@@ -214,6 +236,7 @@ const httpServer = http.createServer((req, res) => {
         totalGames: database.data.games.length,
         liveRooms: liveRooms.length,
         totalTokens: allUsers.reduce((sum, user) => sum + (user.tokens || 0), 0),
+        activeSessions: allUsers.reduce((sum, user) => sum + (user.meta?.activeSessions || 0), 0),
       },
       users: allUsers.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
       games: database.data.games.slice(0, 100),

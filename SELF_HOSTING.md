@@ -76,4 +76,4 @@ Keep backups outside the web root and restrict permissions. Test restoring a bac
 
 ## Admin dashboard
 
-Visit `https://your-domain.example/admin.html`. Administrators can view registered users, balances, recent games, activity, and live rooms. They can also change token balances or disable an account. Password hashes and session tokens are never returned by the admin API.
+Visit `https://your-domain.example/admin.html`. Administrators can view registered users, balances, account metadata, active session counts, recent per-user game history, activity, and live rooms. They can also change token balances or disable an account. Password hashes, salts, and session-token hashes are never returned by the admin API.
