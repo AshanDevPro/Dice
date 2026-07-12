@@ -68,6 +68,7 @@ function renderDashboard(data) {
     ['Games saved', data.summary.totalGames],
     ['Live rooms', data.summary.liveRooms],
     ['Tokens in circulation', data.summary.totalTokens],
+    ['Active rewards', data.summary.activeRewards],
   ];
   byId('summaryCards').innerHTML = cards.map(([label, value]) =>
     `<article class="summary-card"><span class="value">${formatNumber(value)}</span><span class="label">${escapeHtml(label)}</span></article>`
@@ -76,6 +77,7 @@ function renderDashboard(data) {
     selectedUserId = data.users[0]?.id || null;
   }
   renderUsers(data.users);
+  renderRewards(data.rewards || []);
   renderGames(data.games);
   renderEvents(data.events);
   renderRooms(data.liveRooms);
@@ -235,6 +237,22 @@ function renderGames(games) {
     : '<tr><td colspan="7" class="empty">No games recorded yet</td></tr>';
 }
 
+function renderRewards(rewards) {
+  const table = byId('rewardsTable');
+  if (!table) return;
+  table.innerHTML = rewards.length ? rewards.map(reward => `
+    <tr>
+      <td><strong>${escapeHtml(reward.code)}</strong></td>
+      <td>${escapeHtml(reward.title)}</td>
+      <td>${formatNumber(reward.tokens)}</td>
+      <td>${formatNumber(reward.redemptionCount)} / ${formatNumber(reward.maxRedemptions)}</td>
+      <td><span class="pill ${reward.active ? 'active' : 'disabled'}">${reward.active ? 'active' : 'inactive'}</span></td>
+      <td>${escapeHtml(reward.expiresAt ? formatDate(reward.expiresAt) : 'Never')}</td>
+      <td>${escapeHtml(formatDate(reward.createdAt))}</td>
+    </tr>`).join('')
+    : '<tr><td colspan="7" class="empty">No reward codes created yet</td></tr>';
+}
+
 function renderEvents(events) {
   byId('eventsTable').innerHTML = events.length ? events.map(event => `
     <tr><td>${escapeHtml(formatDate(event.createdAt))}</td><td>${escapeHtml(event.type)}</td><td>${escapeHtml(event.username)}</td>
@@ -280,6 +298,40 @@ byId('adminLogout').addEventListener('click', async () => {
 });
 byId('refreshDashboard').addEventListener('click', loadDashboard);
 byId('userSearch').addEventListener('input', () => dashboardData && renderUsers(dashboardData.users));
+
+byId('rewardCreateForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = form.querySelector('button[type="submit"]');
+  const message = byId('rewardCreateMessage');
+  submit.disabled = true;
+  message.textContent = '';
+  message.classList.remove('error');
+  try {
+    const payload = {
+      code: byId('rewardCode').value.trim(),
+      title: byId('rewardTitle').value.trim(),
+      tokens: Number(byId('rewardTokens').value),
+      maxRedemptions: Number(byId('rewardMaxRedemptions').value),
+      expiresAt: byId('rewardExpiresAt').value || null,
+    };
+    const data = await api('/api/admin/rewards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    message.textContent = `Created reward ${data.reward.code}.`;
+    form.reset();
+    byId('rewardTokens').value = '1000';
+    byId('rewardMaxRedemptions').value = '1';
+    await loadDashboard();
+  } catch (error) {
+    message.textContent = error.message;
+    message.classList.add('error');
+  } finally {
+    submit.disabled = false;
+  }
+});
 
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
   document.querySelectorAll('.tab').forEach(item => item.classList.toggle('active', item === tab));

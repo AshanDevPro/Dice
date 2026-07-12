@@ -26,7 +26,7 @@
     }
     .lobby-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
     .lobby-row label { font-size: 0.78rem; color: #9a8ab0; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
-    .lobby-row input[type=text], .lobby-row input[type=password] {
+    .lobby-row input[type=text], .lobby-row input[type=email], .lobby-row input[type=password] {
       background: #0d0d14; border: 1px solid #4a3a6a; border-radius: 9px;
       padding: 10px 13px; color: #e8e0f0; font-size: 1rem; outline: none; width: 100%;
       font-family: inherit;
@@ -139,9 +139,17 @@
   <div class="ad-slot ad-slot-top">📢 Advertisement</div>
 
   <div class="header">
-    <div class="game-title">PIGNUS DICE</div>
-    <div class="subtitle">1 • 4 • 24 — Lock a 1 &amp; a 4 — Score highest with 4 dice</div>
-    <button class="sound-toggle" id="soundToggleBtn" onclick="toggleSoundBtn()">🔊</button>
+    <div class="brand-lockup">
+      <div class="game-title">
+        <img class="title-image" src="assets/Title.png" alt="PigNusDice.com" draggable="false">
+      </div>
+    </div>
+
+    <div class="mascot-showcase" aria-hidden="true">
+      <img class="pig-logo" src="assets/pig_logo.png" alt="" draggable="false">
+    </div>
+
+    <button class="sound-toggle" id="soundToggleBtn" onclick="toggleSoundBtn()" title="Sound" aria-label="Sound"></button>
   </div>
 
   <div class="game-layout">
@@ -151,8 +159,6 @@
 
       <!-- ══ AUTH SCREEN ══ -->
       <div id="authScreen">
-        <div class="setup-title">PIGNUS DICE</div>
-
         <div class="auth-tabs">
           <button class="auth-tab active" id="loginTabBtn">LOGIN</button>
           <button class="auth-tab"        id="registerTabBtn">REGISTER</button>
@@ -199,6 +205,7 @@
             <span id="accountBadgeText"></span>
             <button onclick="claimDailyBonus()" id="dailyBonusBtn" style="background:linear-gradient(135deg,#f59e1b,#d97706);border:none;border-radius:20px;color:white;cursor:pointer;font-size:0.75rem;font-family:inherit;font-weight:800;letter-spacing:0.06em;padding:4px 12px;">🎁 DAILY BONUS</button>
             <button onclick="openTokenPacks()" style="background:linear-gradient(135deg,#e63e6d,#c0225a);border:none;border-radius:20px;color:white;cursor:pointer;font-size:0.75rem;font-family:inherit;font-weight:800;letter-spacing:0.06em;padding:4px 12px;">🛒 BUY TOKENS</button>
+            <button onclick="openRewardRedeem()" style="background:#2c2440;border:1px solid #ffd166;border-radius:20px;color:#ffd166;cursor:pointer;font-size:0.75rem;font-family:inherit;font-weight:800;letter-spacing:0.06em;padding:4px 12px;">REDEEM CODE</button>
             <a id="adminPanelLink" href="/admin.html" style="display:none;background:#2c2440;border:1px solid #5cc8f5;border-radius:20px;color:#5cc8f5;text-decoration:none;font-size:0.75rem;font-family:inherit;font-weight:800;letter-spacing:0.06em;padding:4px 12px;">⚙ ADMIN</a>
             <button onclick="authLogout()" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:0.78rem;font-family:inherit;font-weight:700;letter-spacing:0.06em;">SIGN OUT</button>
             <div id="dailyBonusFeedback" style="width:100%;text-align:center;font-size:0.78rem;min-height:14px;"></div>
@@ -279,6 +286,7 @@
             <span class="pot-info-value pot-highlight" id="potInfoDisplay">0</span>
             <span class="pot-info-label">TOKENS IN POT</span>
           </div>
+          <div class="coin-stack-art" aria-hidden="true"></div>
           <div id="singlePlayerBadge" class="practice-badge-wrap" style="display:none">
             <span class="practice-badge">PRACTICE</span>
           </div>
@@ -420,19 +428,34 @@
     <div id="tokenPacksLoginNote" style="display:none;text-align:center;background:rgba(230,62,109,0.1);border:1px solid rgba(230,62,109,0.3);border-radius:10px;padding:10px;margin-bottom:14px;font-size:0.85rem;color:#e63e6d;">Sign in to an account to purchase tokens</div>
     <div class="token-pack-card">
       <div class="token-pack-info"><div class="token-pack-amount">1,000 Tokens</div><div class="token-pack-price">$0.99</div></div>
-      <button class="token-pack-btn" onclick="tokenPackBuy(1000,'$0.99')">BUY</button>
+      <button class="token-pack-btn" data-pack-id="starter" onclick="tokenPackBuy('starter')">BUY</button>
     </div>
     <div class="token-pack-card token-pack-featured">
       <div class="token-pack-badge">POPULAR</div>
       <div class="token-pack-info"><div class="token-pack-amount">5,000 Tokens</div><div class="token-pack-price">$3.99</div></div>
-      <button class="token-pack-btn" onclick="tokenPackBuy(5000,'$3.99')">BUY</button>
+      <button class="token-pack-btn" data-pack-id="popular" onclick="tokenPackBuy('popular')">BUY</button>
     </div>
     <div class="token-pack-card">
       <div class="token-pack-badge token-pack-badge-value">BEST VALUE</div>
       <div class="token-pack-info"><div class="token-pack-amount">15,000 Tokens</div><div class="token-pack-price">$9.99</div></div>
-      <button class="token-pack-btn" onclick="tokenPackBuy(15000,'$9.99')">BUY</button>
+      <button class="token-pack-btn" data-pack-id="value" onclick="tokenPackBuy('value')">BUY</button>
     </div>
     <button onclick="closeTokenPacks()" class="pill-btn pill-btn-new" style="width:100%;margin-top:16px;justify-content:center;">✕ Close</button>
+  </div>
+</div>
+
+<!-- Reward Redeem Modal -->
+<div id="rewardRedeemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:210;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeRewardRedeem()">
+  <div style="background:#1e1a2e;border:2px solid #ffd166;border-radius:18px;padding:22px;max-width:380px;width:100%;box-shadow:0 0 36px rgba(255,209,102,0.22);">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.55rem;letter-spacing:0.1em;text-align:center;margin-bottom:6px;color:#ffd166;">REDEEM REWARD</div>
+    <div style="text-align:center;font-size:0.82rem;color:#6a5a80;margin-bottom:16px;">Enter a reward code to add tokens to your account.</div>
+    <div class="lobby-row" style="text-align:left;">
+      <label>Reward Code</label>
+      <input type="text" id="rewardCodeInput" placeholder="e.g. LAUNCH1000" maxlength="40" style="text-transform:uppercase;letter-spacing:0.08em;">
+    </div>
+    <div id="rewardRedeemFeedback" style="min-height:20px;text-align:center;font-size:0.86rem;margin:8px 0;"></div>
+    <button onclick="redeemRewardCode()" id="rewardRedeemBtn" class="pill-btn pill-btn-roll" style="width:100%;justify-content:center;">REDEEM</button>
+    <button onclick="closeRewardRedeem()" class="pill-btn pill-btn-new" style="width:100%;margin-top:10px;justify-content:center;">Close</button>
   </div>
 </div>
 

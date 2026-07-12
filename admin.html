@@ -44,6 +44,7 @@
 
       <nav class="tabs" aria-label="Dashboard sections">
         <button class="tab active" data-panel="usersPanel">Users</button>
+        <button class="tab" data-panel="rewardsPanel">Rewards</button>
         <button class="tab" data-panel="gamesPanel">Games</button>
         <button class="tab" data-panel="activityPanel">Activity</button>
         <button class="tab" data-panel="roomsPanel">Live rooms</button>
@@ -58,6 +59,28 @@
         <div class="table-wrap"><table>
           <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Tokens</th><th>Sessions</th><th>Games</th><th>Last login</th><th>Joined</th><th>Actions</th></tr></thead>
           <tbody id="usersTable"></tbody>
+        </table></div>
+      </section>
+
+      <section id="rewardsPanel" class="panel" hidden>
+        <div class="panel-heading"><div><h2>Rewards</h2><p>Create reward codes players can redeem for tokens</p></div></div>
+        <form id="rewardCreateForm" class="admin-form">
+          <label for="rewardCode">Code</label>
+          <input id="rewardCode" name="code" placeholder="LAUNCH1000" maxlength="40" required>
+          <label for="rewardTitle">Title</label>
+          <input id="rewardTitle" name="title" placeholder="Launch bonus" maxlength="80">
+          <label for="rewardTokens">Tokens</label>
+          <input id="rewardTokens" name="tokens" type="number" min="1" max="1000000000" step="1" value="1000" required>
+          <label for="rewardMaxRedemptions">Max redemptions</label>
+          <input id="rewardMaxRedemptions" name="maxRedemptions" type="number" min="1" max="1000000" step="1" value="1" required>
+          <label for="rewardExpiresAt">Expires</label>
+          <input id="rewardExpiresAt" name="expiresAt" type="datetime-local">
+          <button type="submit">Create reward</button>
+          <p id="rewardCreateMessage" class="form-message" role="status"></p>
+        </form>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Code</th><th>Title</th><th>Tokens</th><th>Redeemed</th><th>Status</th><th>Expires</th><th>Created</th></tr></thead>
+          <tbody id="rewardsTable"></tbody>
         </table></div>
       </section>
 

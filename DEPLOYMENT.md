@@ -1,184 +1,224 @@
-# PigNusDice — IONOS Ubuntu 24 Deployment Guide
+# PigNusDice VPS Deployment Guide
 
-> Important: this older server guide does not include the new local account database setup. Before deploying, read [SELF_HOSTING.md](SELF_HOSTING.md), create the administrator with `npm run create-admin`, set a persistent `DATA_DIR`, and enable HTTPS. User passwords must never be sent over public plain HTTP.
+This guide deploys the game to the VPS at `74.208.242.39` from:
 
-> **Server IP:** `74.208.242.39`
-> **GitHub Repo:** `https://github.com/AshanDevPro/Dice.git`
-> **Stack:** Node.js + WebSocket (`ws` package)
-> **Default Port:** `3000`
-> **Access Method:** Windows PowerShell → SSH
-
----
-
-## Prerequisites
-
-| Requirement | Version |
-|-------------|---------|
-| Windows PowerShell | 5.1+ (built-in on Windows 10/11) |
-| Ubuntu on Server | 24 LTS |
-| Node.js | 20 LTS |
-| npm | 10.x |
-| PM2 | latest |
-| Nginx | latest (optional) |
-
----
-
-## Phase A — From Your Windows PowerShell
-
-> Run these commands on **your local machine** before touching the server.
-
-### A1 — Check SSH is available in PowerShell
-
-```powershell
-ssh -V
+```text
+https://github.com/AshanDevPro/Dice.git
 ```
 
-If you see a version number, you are ready. If not, enable it:
+The app is self-hosted. It does not use Firebase, Supabase, Google login, or an external database. Accounts, sessions, activity, saved games, tokens, and admin metadata are stored in a private JSON database file on the VPS.
+
+## Important Security Rules
+
+- Do not send or paste your GitHub account password anywhere.
+- GitHub no longer accepts normal account passwords for Git over HTTPS.
+- If the repository is public, `git clone https://github.com/AshanDevPro/Dice.git` needs no username or password.
+- If GitHub asks for credentials, use:
+  - Username: `AshanDevPro`
+  - Password: a GitHub Personal Access Token, not your GitHub password.
+- Do not commit `data/database.json` to GitHub.
+- Do not run real user logins over public plain HTTP. Use HTTPS before real users register or sign in.
+
+## 1. Push Your Latest Code To GitHub
+
+Run these commands on your Windows computer inside the project folder:
 
 ```powershell
-Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
+git status
+git add .
+git commit -m "Prepare VPS deployment"
+git push origin main
 ```
 
-### A2 — Connect to the server
+If `git commit` says there is nothing to commit, that is fine. Continue to the VPS steps.
+
+## 2. Connect To VPS
+
+Open Windows PowerShell:
 
 ```powershell
 ssh root@74.208.242.39
 ```
 
-Enter your IONOS root password when prompted. You are now inside the Linux server.
+Enter your VPS root password when SSH asks for it.
 
----
+All commands below are run inside the VPS SSH terminal.
 
-## Phase B — Inside the Server (Linux terminal via SSH)
-
-> All commands below are run **inside the SSH session** in your PowerShell window.
-
-### B1 — Update the system
+## 3. Install Server Packages
 
 ```bash
-apt update && apt upgrade -y
+apt update
+apt upgrade -y
+apt install -y curl git nginx ufw
 ```
 
-### B2 — Install Node.js (v20 LTS)
+Install Node.js 20 LTS:
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt install -y nodejs
-```
-
-Verify:
-
-```bash
 node -v
 npm -v
 ```
 
-Expected: `v20.x.x` and `10.x.x`
+Expected Node version starts with `v20`.
 
-### B3 — Install Git
-
-```bash
-apt install -y git
-```
-
-### B4 — Clone the repository
-
-```bash
-cd ~
-git clone https://github.com/AshanDevPro/Dice.git pignusdice
-cd pignusdice
-```
-
-> The `pignusdice` argument names the folder. This avoids path confusion if you're already inside a folder called `Dice`.
-
-### B5 — Install dependencies
-
-```bash
-npm install
-```
-
-### B6 — Test the server manually
-
-```bash
-node server.js
-```
-
-Expected output:
-
-```
-PigNusDice server running on http://localhost:3000
-```
-
-Press `Ctrl+C` to stop it. Next step makes it run permanently.
-
-### B7 — Install PM2 (keeps server running 24/7)
+Install PM2:
 
 ```bash
 npm install -g pm2
 ```
 
-Start the server with PM2:
+## 4. Download The Game
+
+Use `/opt/pignusdice` as the app folder:
 
 ```bash
-pm2 start server.js --name "pignusdice"
+cd /opt
+git clone https://github.com/AshanDevPro/Dice.git pignusdice
+cd /opt/pignusdice
+npm ci
 ```
 
-Auto-start on reboot:
+If `/opt/pignusdice` already exists, update it instead:
 
 ```bash
+cd /opt/pignusdice
+git pull origin main
+npm ci
+```
+
+## 5. Create Private Database Folder
+
+The production database should live outside the Git repo:
+
+```bash
+install -d -m 700 /var/lib/pignusdice
+ls -ld /var/lib/pignusdice
+```
+
+Important: do not type `/var/lib/pignusdice/database.json` as a command. That is only the file location. The file is created later by `npm run create-admin`. If you already typed it and saw `No such file or directory`, ignore that error and continue to step 6.
+
+## 6. Create The Admin Account
+
+Choose your real admin username, email, and a long unique password. Username must be 3-20 letters, numbers, or underscores. Password must be at least 8 characters. Change `owner` and `owner@example.com` before running if you want different admin login details.
+
+```bash
+cd /opt/pignusdice
+export DATA_DIR=/var/lib/pignusdice
+export ADMIN_USERNAME=owner
+export ADMIN_EMAIL=owner@example.com
+read -r -s -p "Admin password: " ADMIN_PASSWORD
+echo
+export ADMIN_PASSWORD
+npm run create-admin
+unset ADMIN_PASSWORD ADMIN_USERNAME ADMIN_EMAIL
+```
+
+When `Admin password:` appears, type your password and press Enter. It will not show on screen.
+
+Expected result will look like one of these:
+
+```text
+Administrator created: owner
+Database: /var/lib/pignusdice/database.json
+```
+
+Or:
+
+```text
+Administrator ready: owner
+Database: /var/lib/pignusdice/database.json
+```
+
+Now verify the database file exists:
+
+```bash
+ls -l /var/lib/pignusdice
+```
+
+You should see `database.json`.
+
+If the user already exists, the command promotes it to admin. To reset that admin password later:
+
+```bash
+cd /opt/pignusdice
+export DATA_DIR=/var/lib/pignusdice
+export ADMIN_USERNAME=owner
+export ADMIN_EMAIL=owner@example.com
+export RESET_ADMIN_PASSWORD=true
+read -r -s -p "New admin password: " ADMIN_PASSWORD
+echo
+export ADMIN_PASSWORD
+npm run create-admin
+unset ADMIN_PASSWORD ADMIN_USERNAME ADMIN_EMAIL RESET_ADMIN_PASSWORD
+```
+
+## 7. Start App With PM2
+
+Create a PM2 config:
+
+```bash
+cd /opt/pignusdice
+nano ecosystem.config.cjs
+```
+
+Paste this:
+
+```js
+module.exports = {
+  apps: [
+    {
+      name: 'pignusdice',
+      script: 'server.js',
+      cwd: '/opt/pignusdice',
+      env: {
+        NODE_ENV: 'production',
+        PORT: '3000',
+        DATA_DIR: '/var/lib/pignusdice',
+      },
+    },
+  ],
+};
+```
+
+Save in nano: `Ctrl+O`, `Enter`, `Ctrl+X`.
+
+Start the app:
+
+```bash
+pm2 start ecosystem.config.cjs
+pm2 save
 pm2 startup
 ```
 
-> PM2 prints a command — **copy and run that exact command** it gives you.
-
-Save the process list:
+`pm2 startup` prints one command. Copy and run that exact command. Then run:
 
 ```bash
 pm2 save
+pm2 status
 ```
 
-### B8 — Configure the firewall
+## 8. Configure Firewall
 
 ```bash
-ufw allow 22
-ufw allow 3000
+ufw allow OpenSSH
+ufw allow 'Nginx Full'
 ufw enable
 ufw status
 ```
 
-> Port 22 = SSH. Never close this or you will lose access to the server.
+Do not block SSH, or you may lose VPS access.
 
----
+## 9. Configure Nginx Reverse Proxy
 
-## Phase C — Test in Browser
-
-Open your browser and go to:
-
-```
-http://74.208.242.39:3000
-```
-
-The game should load. Share this link with other players.
-
----
-
-## Phase D — Nginx Reverse Proxy (Recommended)
-
-Removes the `:3000` from the URL so players just visit `http://74.208.242.39`.
-
-### D1 — Install Nginx
+Create the site config:
 
 ```bash
-apt install -y nginx
+nano /etc/nginx/sites-available/pignusdice
 ```
 
-### D2 — Create the config file
-
-```bash
-nano /etc/nginx/sites-available/dice
-```
-
-Paste this exactly:
+Paste this:
 
 ```nginx
 server {
@@ -186,124 +226,194 @@ server {
     server_name 74.208.242.39;
 
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
-Save: `Ctrl+O` → `Enter` → `Ctrl+X`
-
-### D3 — Enable the site
+Enable it:
 
 ```bash
-ln -s /etc/nginx/sites-available/dice /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/pignusdice /etc/nginx/sites-enabled/pignusdice
+rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 systemctl enable nginx
 ```
 
-`nginx -t` must print `syntax is ok` before you continue.
+`nginx -t` must say the syntax is OK.
 
-### D4 — Open port 80
+Temporary test URLs:
+
+```text
+http://74.208.242.39/
+http://74.208.242.39/admin.html
+```
+
+## 10. Add HTTPS Before Real Users Login
+
+For HTTPS, point a domain to `74.208.242.39` first. Example DNS:
+
+```text
+A record: your-domain.com -> 74.208.242.39
+```
+
+Then update the Nginx `server_name`:
 
 ```bash
-ufw allow 80
+nano /etc/nginx/sites-available/pignusdice
 ```
 
-Players now visit:
+Change:
 
-```
-http://74.208.242.39
-```
-
----
-
-## Updating the Game
-
-When you push new code to GitHub, open PowerShell and run:
-
-```powershell
-ssh root@74.208.242.39
+```nginx
+server_name 74.208.242.39;
 ```
 
-Then inside the SSH session:
+To:
 
-```bash
-cd ~/pignusdice
-git pull
-npm install
-pm2 restart pignusdice
+```nginx
+server_name your-domain.com www.your-domain.com;
 ```
 
----
-
-## PM2 Command Reference
-
-| Command | What it does |
-|---------|-------------|
-| `pm2 status` | Show if server is running |
-| `pm2 logs pignusdice` | Live log output |
-| `pm2 restart pignusdice` | Restart the server |
-| `pm2 stop pignusdice` | Stop the server |
-| `pm2 delete pignusdice` | Remove from PM2 |
-
----
-
-## Troubleshooting
-
-### Cannot connect via SSH from PowerShell
-
-```powershell
-# Check SSH client is installed
-ssh -V
-
-# Try verbose mode to see what fails
-ssh -v root@74.208.242.39
-```
-
-### Server not starting
-
-```bash
-pm2 logs pignusdice
-```
-
-### Port 3000 already in use
-
-```bash
-lsof -i :3000
-kill -9 <PID>
-```
-
-### Nginx not working
+Reload Nginx:
 
 ```bash
 nginx -t
-journalctl -u nginx --no-pager
+systemctl reload nginx
 ```
 
-### Game loads but WebSocket disconnects
+Install Certbot:
 
-Make sure Nginx config includes the `Upgrade` and `Connection` headers exactly as shown in Phase D.
+```bash
+apt install -y certbot python3-certbot-nginx
+certbot --nginx -d your-domain.com -d www.your-domain.com
+```
 
-### Firewall locked you out
+After this, use:
 
-Contact IONOS support to reset via their control panel — do not disable ufw before allowing port 22.
+```text
+https://your-domain.com/
+https://your-domain.com/admin.html
+```
 
----
+## 11. Admin Dashboard Check
 
-## Quick Reference
+Open:
 
-| What | Value |
-|------|-------|
-| Server IP | `74.208.242.39` |
-| SSH command | `ssh root@74.208.242.39` |
-| Game URL (with Nginx) | `http://74.208.242.39` |
-| Game URL (direct) | `http://74.208.242.39:3000` |
-| App directory on server | `~/pignusdice` (`/root/pignusdice`) |
-| Node port | `3000` |
-| PM2 process name | `pignusdice` |
+```text
+http://74.208.242.39/admin.html
+```
+
+Or after HTTPS:
+
+```text
+https://your-domain.com/admin.html
+```
+
+Login with the admin username and password from step 6.
+
+The admin dashboard can view:
+
+- All registered users
+- User email, role, status, token balance, and account ID
+- User account metadata
+- Active session count and session last-seen time
+- Recent games for each user
+- Live rooms
+- Saved game history
+- Activity/events
+- Total users, active users, active sessions, saved games, live rooms, and total tokens
+
+The admin dashboard can also:
+
+- Set a user's token balance
+- Disable or enable user accounts
+
+The admin API does not return password hashes, password salts, or session-token hashes.
+
+## 12. Update Game Later
+
+After pushing new code to GitHub:
+
+```bash
+ssh root@74.208.242.39
+cd /opt/pignusdice
+git pull origin main
+npm ci
+pm2 restart pignusdice --update-env
+pm2 status
+```
+
+## 13. Backup Database
+
+Create backup folder:
+
+```bash
+mkdir -p /var/backups/pignusdice
+chmod 700 /var/backups/pignusdice
+```
+
+Backup:
+
+```bash
+pm2 stop pignusdice
+cp /var/lib/pignusdice/database.json "/var/backups/pignusdice/database-$(date +%F-%H%M).json"
+pm2 start pignusdice
+ls -lh /var/backups/pignusdice
+```
+
+Restore a backup:
+
+```bash
+pm2 stop pignusdice
+cp /var/backups/pignusdice/database-YYYY-MM-DD-HHMM.json /var/lib/pignusdice/database.json
+chmod 600 /var/lib/pignusdice/database.json
+pm2 start pignusdice
+```
+
+## 14. Useful Commands
+
+```bash
+pm2 status
+pm2 logs pignusdice
+pm2 restart pignusdice
+pm2 stop pignusdice
+systemctl status nginx --no-pager
+nginx -t
+tail -f /var/log/nginx/error.log
+```
+
+## 15. Troubleshooting
+
+If the website does not open:
+
+```bash
+pm2 status
+pm2 logs pignusdice
+nginx -t
+systemctl status nginx --no-pager
+ufw status
+```
+
+If login works but multiplayer disconnects, check that Nginx includes:
+
+```nginx
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "upgrade";
+```
+
+If admin login says not administrator, run the admin creation command again with the same username/email.
+
+If GitHub asks for a password during clone or pull:
+
+- Public repo: it should not ask; check the URL.
+- Private repo: username is `AshanDevPro`; password is a GitHub Personal Access Token.
+- Never use or share your GitHub account password.

@@ -116,7 +116,9 @@ body::before {
   text-transform: uppercase;
   font-weight: 700;
 }
-.lobby-row input[type=text] {
+.lobby-row input[type=text],
+.lobby-row input[type=email],
+.lobby-row input[type=password] {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 9px;
@@ -128,7 +130,9 @@ body::before {
   transition: border-color 0.2s;
   width: 100%;
 }
-.lobby-row input[type=text]:focus { border-color: var(--pink); }
+.lobby-row input[type=text]:focus,
+.lobby-row input[type=email]:focus,
+.lobby-row input[type=password]:focus { border-color: var(--pink); }
 .lobby-player-entry {
   display: flex;
   align-items: center;
@@ -812,4 +816,958 @@ body::before {
 @media (max-width: 380px) {
   .die      { width: 42px; height: 42px; }
   .pill-btn { padding: 9px 13px; font-size: 0.88rem; }
+}
+
+/* Casino cabinet skin.
+   Swap generated art later by changing the variables below to url("../assets/name.png"). */
+:root {
+  --bg: #050206;
+  --surface: #270018;
+  --card: #520021;
+  --border: rgba(255, 200, 96, 0.48);
+  --pink: #ec126e;
+  --pink-dark: #8d0038;
+  --pink-light: #ff55a0;
+  --gold: #f2a82a;
+  --gold-bright: #ffd873;
+  --teal: #44e8a6;
+  --text: #ffd873;
+  --text-dim: #ffe8a8;
+  --muted: #d6a65b;
+  --danger: #ff5e78;
+  --casino-black: #070308;
+  --casino-burgundy: #70002c;
+  --casino-burgundy-deep: #350014;
+  --casino-panel: #5a0023;
+  --cream-die: #fff1c9;
+  --brand-logo-art: none;
+  --mascot-art:
+    radial-gradient(circle at 48% 35%, #ff99ad 0 15%, transparent 16%),
+    radial-gradient(circle at 36% 28%, #ff8299 0 8%, transparent 9%),
+    radial-gradient(circle at 63% 28%, #ff8299 0 8%, transparent 9%),
+    radial-gradient(circle at 50% 48%, #ffb0bd 0 25%, transparent 26%),
+    linear-gradient(145deg, #131313 0 50%, #262626 51% 100%);
+  --coin-stack-art:
+    radial-gradient(ellipse at 78% 88%, #a85d00 0 26%, transparent 27%),
+    radial-gradient(ellipse at 64% 76%, #ffcf4d 0 22%, transparent 23%),
+    radial-gradient(ellipse at 46% 90%, #f5a623 0 28%, transparent 29%),
+    radial-gradient(ellipse at 30% 75%, #ffd86d 0 24%, transparent 25%),
+    linear-gradient(180deg, transparent 0 45%, rgba(92, 37, 0, 0.45) 46% 100%);
+}
+
+body {
+  background:
+    radial-gradient(circle at 50% -12%, rgba(255, 49, 137, 0.28), transparent 32rem),
+    radial-gradient(circle at 50% 78%, rgba(116, 0, 43, 0.42), transparent 34rem),
+    linear-gradient(180deg, #000 0%, #130008 42%, #040104 100%);
+}
+
+body::before {
+  background:
+    linear-gradient(90deg, rgba(255, 215, 115, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at 10% 82%, rgba(255, 215, 115, 0.16), transparent 11rem),
+    radial-gradient(circle at 90% 9%, rgba(236, 18, 110, 0.2), transparent 14rem);
+  background-size: 54px 54px, auto, auto;
+  opacity: 0.9;
+}
+
+#app {
+  max-width: 760px;
+  padding: 0 14px 34px;
+}
+
+.game-layout {
+  display: block;
+}
+
+.game-main {
+  width: min(100%, 620px);
+  margin: 0 auto;
+}
+
+.ad-slot-side,
+.ad-slot-top {
+  display: none;
+}
+
+.ad-slot-bottom {
+  width: min(100%, 620px);
+  height: 58px;
+  margin: 18px auto 0;
+  border: 1px dashed rgba(255, 216, 115, 0.52);
+  border-radius: 9px;
+  background: rgba(13, 13, 13, 0.58);
+  color: #f2d797;
+  box-shadow: inset 0 0 18px rgba(255, 216, 115, 0.08);
+}
+
+.header {
+  width: min(100%, 660px);
+  min-height: 220px;
+  margin: 0 auto -8px;
+  padding: 24px 56px 0 0;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.brand-lockup {
+  position: relative;
+  z-index: 3;
+  flex: 1 1 auto;
+  max-width: 410px;
+  padding-top: 48px;
+}
+
+.brand-lockup::before {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 86px;
+  position: absolute;
+  left: -5px;
+  top: 32px;
+  background-image: var(--brand-logo-art);
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: left center;
+  pointer-events: none;
+}
+
+.game-title {
+  width: min(100%, 430px);
+  line-height: 0;
+}
+
+.title-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.72));
+}
+
+.subtitle {
+  max-width: 330px;
+  margin-top: 18px;
+  color: rgba(255, 247, 217, 0.78);
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.78);
+}
+
+.mascot-showcase {
+  position: absolute;
+  right: 42px;
+  top: 70px;
+  z-index: 2;
+  width: 230px;
+  height: 180px;
+  pointer-events: none;
+}
+
+.pig-logo {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: min(100%, 196px);
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 18px 20px rgba(0, 0, 0, 0.7));
+}
+
+.mascot-ring {
+  position: absolute;
+  inset: 8px 0 0 16px;
+  border: 6px solid var(--pink);
+  border-right-color: var(--gold-bright);
+  border-bottom-color: var(--gold-bright);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 4px rgba(5, 2, 6, 0.95),
+    0 0 0 2px #0c0508,
+    0 0 28px rgba(236, 18, 110, 0.45);
+  overflow: hidden;
+}
+
+.mascot-silhouette {
+  position: absolute;
+  left: 28px;
+  top: 26px;
+  width: 154px;
+  height: 150px;
+  border-radius: 44% 44% 18% 18%;
+  background-image: var(--mascot-art);
+  background-size: cover;
+  background-position: center;
+  filter: drop-shadow(0 16px 16px rgba(0, 0, 0, 0.7));
+}
+
+.mascot-silhouette::before {
+  content: '';
+  position: absolute;
+  left: 38px;
+  top: -28px;
+  width: 82px;
+  height: 44px;
+  border-radius: 50% 50% 12% 12%;
+  background: linear-gradient(180deg, #1d1d1d 0 74%, #efae2f 75% 100%);
+  box-shadow: 0 0 0 4px #080808;
+  transform: rotate(4deg);
+}
+
+.mascot-silhouette::after {
+  content: '';
+  position: absolute;
+  left: 45px;
+  top: 44px;
+  width: 66px;
+  height: 16px;
+  border-radius: 999px;
+  background: #090909;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
+}
+
+.floating-die {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at 30% 30%, #8a4d00 0 4px, transparent 4.5px),
+    radial-gradient(circle at 70% 70%, #8a4d00 0 4px, transparent 4.5px),
+    linear-gradient(135deg, #fff5c9, #ffc441);
+  border: 2px solid #7a4200;
+  box-shadow: 0 7px 12px rgba(0, 0, 0, 0.46);
+}
+
+.floating-die.die-a {
+  left: 34px;
+  top: 74px;
+  transform: rotate(-18deg);
+}
+
+.floating-die.die-b {
+  left: 76px;
+  top: 106px;
+  transform: rotate(18deg) scale(0.86);
+}
+
+body .header .sound-toggle {
+  position: absolute;
+  right: 0;
+  top: 70px;
+  z-index: 4;
+  width: 50px;
+  height: 48px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: url("../assets/menu_icon.png") center / contain no-repeat;
+  color: transparent;
+  text-shadow: none;
+  box-shadow: none;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.42));
+}
+
+body .header .sound-toggle::before,
+body .header .sound-toggle::after {
+  content: none;
+}
+
+#gameScreen {
+  position: relative;
+  padding-top: 2px;
+}
+
+.players-strip {
+  gap: 10px;
+  margin: 0 4px 12px;
+  padding: 0 0 14px;
+}
+
+.player-tab {
+  min-width: 145px;
+  border: 2px solid rgba(255, 216, 115, 0.66);
+  border-radius: 8px;
+  padding: 9px 14px 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 34%),
+    radial-gradient(circle at 50% 115%, rgba(236, 18, 110, 0.26), transparent 60%),
+    #611b24;
+  color: var(--text);
+  box-shadow:
+    inset 0 0 0 2px rgba(94, 0, 36, 0.72),
+    0 6px 0 rgba(73, 23, 0, 0.65),
+    0 12px 20px rgba(0, 0, 0, 0.35);
+}
+
+.player-tab.active-turn {
+  border-color: var(--gold-bright);
+  background:
+    linear-gradient(180deg, rgba(255, 216, 115, 0.18), transparent 30%),
+    #7b1a33;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 231, 159, 0.15),
+    0 0 16px rgba(255, 216, 115, 0.42),
+    0 8px 0 rgba(73, 23, 0, 0.65);
+}
+
+.tab-name {
+  color: var(--gold-bright) !important;
+  font-size: 1rem;
+}
+
+.tab-tokens {
+  color: #fff2c4;
+  font-size: 0.78rem;
+}
+
+.tab-score {
+  color: rgba(255, 247, 217, 0.72);
+}
+
+.turn-arrow {
+  bottom: -15px;
+  color: var(--gold-bright);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.72);
+}
+
+.pot-info-bar {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(74px, 0.8fr) minmax(160px, 1.4fr) 104px auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 96px;
+  margin: 0 4px 14px;
+  padding: 13px 14px;
+  overflow: visible;
+  border: 2px solid rgba(255, 216, 115, 0.82);
+  border-radius: 9px;
+  background:
+    linear-gradient(180deg, rgba(255, 216, 115, 0.08), transparent 34%),
+    linear-gradient(135deg, rgba(14, 15, 17, 0.98), rgba(47, 40, 27, 0.9));
+  box-shadow:
+    inset 0 0 0 2px rgba(112, 0, 44, 0.6),
+    0 8px 22px rgba(0, 0, 0, 0.42);
+}
+
+.pot-info-center {
+  justify-content: center;
+  min-width: 0;
+}
+
+.pot-info-item,
+.pot-info-center {
+  position: relative;
+  z-index: 2;
+}
+
+.pot-info-label {
+  color: var(--gold-bright);
+  font-size: 0.7rem;
+}
+
+.pot-info-value {
+  color: var(--text);
+}
+
+.pot-highlight {
+  color: var(--gold-bright);
+  font-size: 2.15rem;
+}
+
+.coin-stack-art {
+  width: 116px;
+  height: 86px;
+  margin-left: -16px;
+  align-self: end;
+  justify-self: end;
+  background-image: var(--coin-stack-art);
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center bottom;
+  filter: drop-shadow(0 12px 10px rgba(0, 0, 0, 0.55));
+}
+
+.practice-badge-wrap {
+  justify-self: end;
+}
+
+.opponents-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 0 4px 14px;
+}
+
+.opp-card {
+  border: 2px solid rgba(255, 216, 115, 0.7);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 216, 115, 0.08), transparent 35%),
+    linear-gradient(135deg, #6d0a2d, #3a0619);
+  box-shadow:
+    inset 0 0 0 2px rgba(105, 0, 37, 0.72),
+    0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.opp-card-header {
+  margin-bottom: 9px;
+}
+
+.opp-name,
+.opp-status {
+  color: var(--text);
+}
+
+.opp-status.qualified {
+  color: var(--teal);
+}
+
+.active-board {
+  position: relative;
+  overflow: hidden;
+  margin: 0 4px 14px;
+  padding: 24px 22px 18px;
+  border: 3px solid var(--gold-bright);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 75, 158, 0.28), transparent 22rem),
+    radial-gradient(circle at 85% 102%, rgba(0, 0, 0, 0.54), transparent 16rem),
+    linear-gradient(155deg, #7d0030 0%, #570020 47%, #15191d 100%);
+  box-shadow:
+    inset 0 0 0 3px rgba(89, 0, 31, 0.85),
+    inset 0 0 0 7px rgba(255, 216, 115, 0.18),
+    0 0 0 1px #2b070e,
+    0 16px 32px rgba(0, 0, 0, 0.64),
+    0 0 28px rgba(236, 18, 110, 0.34);
+}
+
+.active-board::before,
+.active-board::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.active-board::before {
+  inset: 12px;
+  border: 1px solid rgba(255, 216, 115, 0.58);
+  border-radius: 17px;
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.28);
+}
+
+.active-board::after {
+  right: 16px;
+  bottom: 12px;
+  width: 56px;
+  height: 56px;
+  background:
+    linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.92) 50%, transparent 60%),
+    linear-gradient(-45deg, transparent 40%, rgba(255, 216, 115, 0.92) 50%, transparent 60%);
+  filter: drop-shadow(0 0 9px rgba(255, 216, 115, 0.9));
+  transform: rotate(10deg);
+}
+
+.active-board > * {
+  position: relative;
+  z-index: 1;
+}
+
+.board-header {
+  margin-bottom: 12px;
+  padding: 0 2px 8px;
+  border-bottom: 1px solid rgba(255, 216, 115, 0.24);
+}
+
+.board-player-name {
+  color: #fff3c4;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.68rem;
+  letter-spacing: 0.03em;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.55);
+}
+
+.board-tokens-tag,
+.board-ante-tag {
+  color: #fff1bc;
+  font-size: 0.95rem;
+}
+
+.board-tokens-tag strong {
+  color: var(--gold-bright);
+}
+
+.roll-status-bar {
+  margin: 0 0 12px;
+  gap: 7px;
+}
+
+.roll-status-bar .pill {
+  border: 1px solid rgba(255, 216, 115, 0.62);
+  border-radius: 999px;
+  background: rgba(52, 0, 21, 0.78);
+  color: #ffe9a2;
+  padding: 4px 10px;
+  font-weight: 700;
+}
+
+.roll-status-bar .pill.hint {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: rgba(0, 64, 42, 0.28);
+}
+
+.hand-zone {
+  min-height: 120px;
+  margin-bottom: 12px;
+  padding: 15px 17px;
+  border: 2px solid rgba(255, 216, 115, 0.68);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(236, 18, 110, 0.16), transparent 18rem),
+    rgba(85, 0, 32, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 238, 180, 0.08),
+    inset 0 -20px 30px rgba(33, 0, 13, 0.36);
+}
+
+.zone-label {
+  color: #fff2c4;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.48);
+}
+
+.zone-label .zone-icon {
+  font-size: 1.1rem;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+
+.zone-hint,
+.zone-hint-dim {
+  color: #ffe6a2;
+  text-align: left;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+}
+
+.zone-hint-dim {
+  color: rgba(255, 239, 196, 0.78);
+}
+
+.dice-row {
+  justify-content: flex-start;
+  gap: clamp(7px, 2vw, 14px);
+  min-height: 70px;
+}
+
+.die {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  filter:
+    drop-shadow(0 7px 0 rgba(88, 42, 0, 0.8))
+    drop-shadow(0 12px 14px rgba(0, 0, 0, 0.42));
+}
+
+.die.selectable:hover {
+  transform: translateY(-5px) scale(1.06);
+  filter:
+    drop-shadow(0 8px 0 rgba(88, 42, 0, 0.8))
+    drop-shadow(0 15px 16px rgba(0, 0, 0, 0.48))
+    brightness(1.06);
+}
+
+.die.selected {
+  transform: translateY(-8px) scale(1.08);
+  filter:
+    drop-shadow(0 0 10px var(--teal))
+    drop-shadow(0 8px 0 rgba(0, 77, 50, 0.75))
+    drop-shadow(0 18px 16px rgba(0, 0, 0, 0.45))
+    brightness(1.08);
+}
+
+#lockHintLine {
+  color: var(--teal) !important;
+  font-weight: 700;
+}
+
+.active-board .action-btn-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  justify-items: stretch;
+  margin: 18px auto 0;
+  max-width: 520px;
+}
+
+.active-board .pill-btn {
+  width: 100%;
+  min-height: 56px;
+  justify-content: center;
+  border: 2px solid rgba(255, 216, 115, 0.72);
+  border-radius: 999px;
+  color: #fff3c4;
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 rgba(83, 0, 27, 0.86);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.08),
+    0 5px 0 #781236,
+    0 12px 18px rgba(0, 0, 0, 0.36);
+}
+
+.active-board .pill-btn-roll,
+.active-board .pill-btn-end {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 30%),
+    linear-gradient(135deg, #f12683, #a90044 58%, #74002c);
+}
+
+.active-board .pill-btn-lock {
+  background:
+    linear-gradient(180deg, rgba(255, 216, 115, 0.18), transparent 32%),
+    linear-gradient(135deg, #77163f, #4b0926);
+}
+
+.active-board #endTurnBtn {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, 310px);
+}
+
+.msg-box {
+  margin-top: 18px;
+  border-top: 1px solid rgba(255, 216, 115, 0.28);
+  color: #ffe5a4;
+  font-size: 0.88rem;
+}
+
+#midRollBetting,
+#bettingPanel,
+.results-card,
+.token-pack-card,
+.room-browser-card {
+  border-radius: 8px;
+}
+
+#midRollBetting,
+#bettingPanel {
+  border: 2px solid rgba(255, 216, 115, 0.66);
+  background:
+    linear-gradient(180deg, rgba(255, 216, 115, 0.08), transparent 34%),
+    rgba(66, 0, 25, 0.92);
+}
+
+.mid-bet-title,
+.betting-title {
+  color: var(--gold-bright);
+}
+
+.bet-display,
+.bet-amount-display,
+.step-btn,
+.preset-btn {
+  border-color: rgba(255, 216, 115, 0.52);
+  background: rgba(13, 3, 8, 0.78);
+  color: var(--gold-bright);
+}
+
+body #authScreen,
+body #lobbyScreen {
+  border: 2px solid rgba(255, 216, 115, 0.78);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(236, 18, 110, 0.25), transparent 18rem),
+    linear-gradient(150deg, #610027, #1a0712 70%);
+  box-shadow:
+    inset 0 0 0 2px rgba(109, 0, 40, 0.7),
+    0 14px 30px rgba(0, 0, 0, 0.48);
+}
+
+body #authScreen,
+body #lobbyScreen,
+#tokenPacksModal,
+#rewardRedeemModal {
+  color: var(--gold-bright);
+}
+
+body #authScreen label,
+body #lobbyScreen label,
+#tokenPacksModal,
+#rewardRedeemModal label,
+.token-pack-amount,
+.token-pack-price {
+  color: var(--gold-bright) !important;
+}
+
+body #authScreen input,
+body #lobbyScreen input,
+#rewardRedeemModal input {
+  background: rgba(8, 2, 6, 0.86) !important;
+  border: 1px solid rgba(255, 216, 115, 0.72) !important;
+  box-shadow: inset 0 0 0 1px rgba(109, 0, 40, 0.58);
+  color: var(--gold-bright) !important;
+  caret-color: var(--gold-bright);
+}
+
+body #authScreen input::placeholder,
+body #lobbyScreen input::placeholder,
+#rewardRedeemModal input::placeholder {
+  color: rgba(255, 216, 115, 0.48);
+}
+
+body #authScreen .auth-tab,
+body #lobbyScreen button,
+#tokenPacksModal button,
+#rewardRedeemModal button {
+  color: var(--gold-bright) !important;
+}
+
+body #authScreen {
+  min-height: clamp(470px, 82vw, 600px);
+  padding: clamp(86px, 15vw, 120px) clamp(48px, 9vw, 82px) clamp(70px, 11vw, 92px);
+  border: 0;
+  border-radius: 30px;
+  background:
+    url("../assets/frame.png") center / 100% 100% no-repeat,
+    linear-gradient(150deg, #610027, #1a0712 70%);
+  box-shadow:
+    0 20px 34px rgba(0, 0, 0, 0.48),
+    0 0 26px rgba(255, 216, 115, 0.16);
+}
+
+body #authScreen .auth-tabs,
+body #authScreen #loginForm,
+body #authScreen #registerForm,
+body #authScreen #authError,
+body #authScreen p {
+  width: min(100%, 360px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+body #authScreen p {
+  color: rgba(255, 239, 196, 0.78) !important;
+}
+
+body #authScreen .setup-title,
+body #lobbyScreen .setup-title {
+  color: var(--gold-bright) !important;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+}
+
+body #authScreen .auth-logo {
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  background: #050206;
+  border-color: rgba(255, 216, 115, 0.72);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px rgba(236, 18, 110, 0.52),
+    0 12px 24px rgba(0, 0, 0, 0.44);
+}
+
+@media (max-width: 660px) {
+  #app {
+    padding-inline: 9px;
+  }
+
+  .header {
+    min-height: 202px;
+    padding-right: 44px;
+  }
+
+  .brand-lockup {
+    max-width: 330px;
+    padding-top: 54px;
+  }
+
+  .game-title {
+    font-size: clamp(2.85rem, 13.6vw, 4.65rem);
+  }
+
+  .subtitle {
+    max-width: 260px;
+    margin-top: 15px;
+    font-size: 0.66rem;
+  }
+
+  .mascot-showcase {
+    right: 22px;
+    top: 76px;
+    width: 180px;
+    height: 142px;
+  }
+
+  .pig-logo {
+    width: 156px;
+  }
+
+  .mascot-silhouette {
+    left: 25px;
+    top: 25px;
+    width: 120px;
+    height: 116px;
+  }
+
+  .mascot-silhouette::before {
+    left: 29px;
+    top: -23px;
+    width: 64px;
+    height: 35px;
+  }
+
+  .mascot-silhouette::after {
+    left: 34px;
+    top: 35px;
+    width: 53px;
+    height: 13px;
+  }
+
+  .floating-die {
+    width: 32px;
+    height: 32px;
+  }
+
+  body .header .sound-toggle {
+    right: 0;
+    top: 80px;
+    transform: scale(0.82);
+    transform-origin: top right;
+  }
+
+  .pot-info-bar {
+    grid-template-columns: 74px minmax(130px, 1fr) 80px;
+    min-height: 86px;
+  }
+
+  .coin-stack-art {
+    width: 90px;
+    height: 72px;
+  }
+
+  .practice-badge-wrap {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+
+  .active-board {
+    padding: 20px 15px 16px;
+  }
+
+  .board-header {
+    display: block;
+  }
+
+  .board-right-info {
+    margin-top: 6px;
+    gap: 9px;
+  }
+}
+
+@media (max-width: 470px) {
+  .header {
+    min-height: 188px;
+    padding-right: 34px;
+  }
+
+  body #authScreen {
+    min-height: 500px;
+    padding: 78px 32px 64px;
+    border-radius: 24px;
+  }
+
+  .brand-lockup {
+    max-width: 272px;
+  }
+
+  .game-title {
+    font-size: clamp(2.45rem, 14vw, 3.65rem);
+  }
+
+  .subtitle {
+    max-width: 220px;
+    letter-spacing: 0.06em;
+    display: none;
+  }
+
+  .mascot-showcase {
+    right: 13px;
+    top: 91px;
+    width: 128px;
+    height: 103px;
+  }
+
+  .pig-logo {
+    width: 112px;
+  }
+
+  .mascot-ring {
+    border-width: 4px;
+  }
+
+  .mascot-silhouette {
+    left: 20px;
+    top: 21px;
+    width: 88px;
+    height: 86px;
+  }
+
+  .mascot-silhouette::before,
+  .mascot-silhouette::after,
+  .floating-die {
+    display: none;
+  }
+
+  body .header .sound-toggle {
+    top: 85px;
+    transform: scale(0.72);
+  }
+
+  .players-strip {
+    gap: 8px;
+  }
+
+  .player-tab {
+    min-width: 128px;
+  }
+
+  .pot-info-bar {
+    grid-template-columns: 1fr;
+    text-align: center;
+    padding-right: 86px;
+  }
+
+  .pot-info-item {
+    min-width: 0;
+  }
+
+  .coin-stack-art {
+    position: absolute;
+    right: 7px;
+    bottom: 5px;
+  }
+
+  .active-board .action-btn-row {
+    grid-template-columns: 1fr;
+  }
+
+  .active-board #endTurnBtn {
+    width: 100%;
+  }
+
+  .die {
+    width: 52px;
+    height: 52px;
+  }
 }

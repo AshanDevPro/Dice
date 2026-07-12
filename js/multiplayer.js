@@ -75,6 +75,7 @@ function authShowLobby() {
   }
   // Show account badge
   updateAccountBadge();
+  showPaymentReturnMessage();
   // Set server URL
   document.getElementById('lobbyServer').value = _wsDefault;
   // Auto-fill room code if arriving from a share link (?room=XXXX)
@@ -105,6 +106,21 @@ function updateAccountBadge() {
   } else {
     badge.style.display = 'none';
   }
+}
+
+function showPaymentReturnMessage() {
+  const payment = new URLSearchParams(window.location.search).get('payment');
+  if (!payment) return;
+  const fbEl = document.getElementById('dailyBonusFeedback');
+  if (!fbEl) return;
+  if (payment === 'success') {
+    fbEl.textContent = 'Payment received. Tokens will appear after Stripe confirms the payment.';
+    fbEl.style.color = '#06d6a0';
+  } else if (payment === 'cancelled') {
+    fbEl.textContent = 'Checkout cancelled.';
+    fbEl.style.color = '#f59e1b';
+  }
+  setTimeout(() => { fbEl.textContent = ''; }, 8000);
 }
 
 async function claimDailyBonus() {
@@ -1027,13 +1043,98 @@ function closeTokenPacks() {
   const modal = document.getElementById('tokenPacksModal');
   if (modal) modal.style.display = 'none';
 }
-function tokenPackBuy(tokens, price) {
+async function tokenPackBuy(packId) {
   if (!auth.sessionToken) {
     alert('Please sign in to purchase token packs.');
     closeTokenPacks();
     return;
   }
-  alert('🚧 Payment coming soon!\n\nThis will add ' + tokens.toLocaleString() + ' tokens to your account for ' + price + '.');
+  const selectorPackId = String(packId).replace(/"/g, '');
+  const btn = document.querySelector('.token-pack-btn[data-pack-id="' + selectorPackId + '"]');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch('/api/payments/checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + auth.sessionToken,
+      },
+      body: JSON.stringify({ packId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Unable to start checkout');
+    window.location.href = data.url;
+  } catch (error) {
+    alert(error.message);
+    if (btn) btn.disabled = false;
+  }
+}
+
+function openRewardRedeem() {
+  if (!auth.sessionToken) {
+    alert('Please sign in to redeem reward codes.');
+    return;
+  }
+  const modal = document.getElementById('rewardRedeemModal');
+  const input = document.getElementById('rewardCodeInput');
+  const feedback = document.getElementById('rewardRedeemFeedback');
+  if (feedback) feedback.textContent = '';
+  if (input) {
+    input.value = '';
+    setTimeout(() => input.focus(), 0);
+  }
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeRewardRedeem() {
+  const modal = document.getElementById('rewardRedeemModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function redeemRewardCode() {
+  if (!auth.sessionToken) return;
+  const input = document.getElementById('rewardCodeInput');
+  const feedback = document.getElementById('rewardRedeemFeedback');
+  const btn = document.getElementById('rewardRedeemBtn');
+  const code = input ? input.value.trim() : '';
+  if (!code) {
+    if (feedback) { feedback.textContent = 'Enter a reward code.'; feedback.style.color = '#ff6b6b'; }
+    return;
+  }
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch('/api/rewards/redeem', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + auth.sessionToken,
+      },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Unable to redeem reward');
+    auth.tokens = data.tokens;
+    updateAccountBadge();
+    if (feedback) {
+      feedback.textContent = '+' + data.tokensAdded.toLocaleString() + ' tokens added!';
+      feedback.style.color = '#06d6a0';
+    }
+    setTimeout(closeRewardRedeem, 1200);
+  } catch (error) {
+    if (feedback) {
+      feedback.textContent = error.message;
+      feedback.style.color = '#ff6b6b';
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+const rewardCodeInput = document.getElementById('rewardCodeInput');
+if (rewardCodeInput) {
+  rewardCodeInput.addEventListener('keypress', event => {
+    if (event.key === 'Enter') redeemRewardCode();
+  });
 }
 
 // ANTE, ROLL_COST, MAX_ROLLS, COLORS defined in game.js (loaded before this file)
