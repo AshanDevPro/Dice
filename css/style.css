@@ -1771,3 +1771,617 @@ body #authScreen .auth-logo {
     height: 52px;
   }
 }
+
+/* Main menu */
+body .header .menu-button {
+  position: absolute;
+  right: 0;
+  top: 70px;
+  z-index: 70;
+  width: 50px;
+  height: 48px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: url("../assets/menu_icon.png") center / contain no-repeat;
+  color: transparent;
+  text-shadow: none;
+  box-shadow: none;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.42));
+  touch-action: manipulation;
+}
+
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.54);
+}
+
+.game-menu {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  top: max(12px, env(safe-area-inset-top));
+  z-index: 90;
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  padding: 14px;
+  border: 2px solid rgba(255, 216, 115, 0.82);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 216, 115, 0.08), transparent 32%),
+    linear-gradient(150deg, #610027, #17050d 72%);
+  box-shadow:
+    inset 0 0 0 2px rgba(109, 0, 40, 0.7),
+    0 20px 34px rgba(0, 0, 0, 0.58);
+}
+
+.game-menu[hidden],
+.menu-backdrop[hidden] {
+  display: none;
+}
+
+.game-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: var(--gold-bright);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.45rem;
+  letter-spacing: 0.05em;
+}
+
+.menu-close-btn {
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 216, 115, 0.62);
+  border-radius: 7px;
+  background: rgba(8, 2, 6, 0.86);
+  color: var(--gold-bright);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.game-menu-room {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 216, 115, 0.42);
+  border-radius: 8px;
+  background: rgba(8, 2, 6, 0.62);
+  color: #fff1bc;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.game-menu-item {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 216, 115, 0.62);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 32%),
+    rgba(82, 0, 33, 0.92);
+  color: var(--gold-bright);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.game-menu-item:hover,
+.game-menu-item:focus-visible {
+  border-color: var(--gold-bright);
+  outline: none;
+}
+
+.game-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.game-menu-note {
+  margin-top: 10px;
+  color: rgba(255, 239, 196, 0.74);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.25;
+  user-select: text;
+}
+
+.game-menu-feedback {
+  min-height: 18px;
+  margin-top: 8px;
+  color: var(--teal);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.share-fallback-card {
+  margin-top: 8px;
+  color: #fff1bc;
+}
+
+.share-text {
+  display: block;
+  width: 100%;
+  min-height: 86px;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid rgba(255, 216, 115, 0.62);
+  border-radius: 8px;
+  background: rgba(8, 2, 6, 0.86);
+  color: var(--gold-bright);
+  font: 600 0.82rem/1.3 'Barlow', sans-serif;
+  resize: vertical;
+  user-select: text;
+}
+
+.share-copy-btn {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 216, 115, 0.62);
+  border-radius: 7px;
+  background: rgba(82, 0, 33, 0.92);
+  color: var(--gold-bright);
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+@media (max-width: 660px) {
+  body .header .menu-button {
+    right: 0;
+    top: 80px;
+    transform: scale(0.82);
+    transform-origin: top right;
+  }
+}
+
+@media (max-width: 470px) {
+  body .header .menu-button {
+    top: 85px;
+    transform: scale(0.72);
+  }
+}
+
+/* Active game viewport fit */
+body.game-active {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body.game-active #app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 980px;
+  height: 100dvh;
+  padding: max(4px, env(safe-area-inset-top)) 8px max(6px, env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+
+body.game-active .header {
+  width: 100%;
+  min-height: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+body.game-active .brand-lockup,
+body.game-active .mascot-showcase,
+body.game-active .ad-slot-bottom {
+  display: none;
+}
+
+body.game-active .header .menu-button {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  right: max(8px, env(safe-area-inset-right));
+  transform: none;
+  width: 42px;
+  height: 40px;
+}
+
+body.game-active .game-layout {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.game-active .game-main {
+  width: min(100%, 900px);
+  height: 100%;
+  margin: 0 auto;
+}
+
+body.game-active #gameScreen {
+  display: grid !important;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 6px;
+  height: 100%;
+  min-height: 0;
+  padding-top: 0;
+  overflow: hidden;
+}
+
+body.game-active .players-strip {
+  min-height: 0;
+  margin: 0 46px 0 0;
+  padding: 0 0 4px;
+  gap: 6px;
+}
+
+body.game-active .player-tab {
+  min-width: 104px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+body.game-active .tab-name {
+  font-size: 0.78rem;
+}
+
+body.game-active .tab-tokens,
+body.game-active .tab-score {
+  font-size: 0.62rem;
+}
+
+body.game-active .turn-arrow {
+  display: none !important;
+}
+
+body.game-active .pot-info-bar {
+  grid-template-columns: 68px minmax(0, 1fr) 58px;
+  min-height: 48px;
+  margin: 0;
+  padding: 6px 8px;
+  gap: 6px;
+  border-width: 1px;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+body.game-active .pot-info-label {
+  font-size: 0.58rem;
+}
+
+body.game-active .pot-info-value {
+  font-size: 0.86rem;
+}
+
+body.game-active .pot-highlight {
+  font-size: 1.35rem;
+}
+
+body.game-active .coin-stack-art {
+  width: 58px;
+  height: 42px;
+  margin-left: 0;
+}
+
+body.game-active .practice-badge-wrap {
+  display: none !important;
+}
+
+body.game-active .opponents-grid {
+  display: flex;
+  gap: 6px;
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+body.game-active .opponents-grid::-webkit-scrollbar {
+  display: none;
+}
+
+body.game-active .opp-card {
+  flex: 0 0 132px;
+  min-width: 132px;
+  padding: 6px 8px;
+  border-width: 1px;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+body.game-active .opp-card-header {
+  gap: 5px;
+  margin-bottom: 3px;
+}
+
+body.game-active .opp-dot {
+  width: 7px;
+  height: 7px;
+}
+
+body.game-active .opp-name {
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+body.game-active .opp-qual-slots {
+  gap: 4px;
+  margin: 3px 0;
+}
+
+body.game-active .small-die {
+  width: 22px;
+  height: 22px;
+}
+
+body.game-active .opp-status {
+  font-size: 0.62rem;
+}
+
+body.game-active .active-board {
+  display: grid;
+  grid-template-rows: auto auto repeat(3, minmax(50px, 1fr)) auto auto;
+  gap: 6px;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  padding: 8px;
+  overflow: hidden;
+  border-width: 2px;
+  border-radius: 13px;
+  box-shadow:
+    inset 0 0 0 2px rgba(89, 0, 31, 0.72),
+    0 8px 18px rgba(0, 0, 0, 0.48);
+}
+
+body.game-active .active-board::before,
+body.game-active .active-board::after {
+  display: none;
+}
+
+body.game-active .board-header {
+  margin: 0;
+  padding: 0 0 4px;
+  gap: 4px;
+}
+
+body.game-active .board-player-name {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+body.game-active .board-right-info {
+  gap: 8px;
+}
+
+body.game-active .board-tokens-tag,
+body.game-active .board-ante-tag {
+  font-size: 0.7rem;
+}
+
+body.game-active .roll-status-bar {
+  gap: 4px;
+  margin: 0;
+}
+
+body.game-active .roll-status-bar .pill {
+  padding: 1px 6px;
+  font-size: 0.64rem;
+}
+
+body.game-active .hand-zone {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-bottom: 0;
+  padding: 6px 8px;
+  overflow: hidden;
+  border-width: 1px;
+  border-radius: 8px;
+}
+
+body.game-active .zone-label {
+  flex: 0 0 auto;
+  margin-bottom: 3px;
+  font-size: 0.78rem;
+  line-height: 1;
+  letter-spacing: 0.03em;
+}
+
+body.game-active .zone-label .zone-icon {
+  font-size: 0.82rem;
+}
+
+body.game-active .zone-hint,
+body.game-active .zone-hint-dim {
+  padding: 2px 0;
+  font-size: 0.72rem;
+  line-height: 1.15;
+}
+
+body.game-active .dice-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 6px;
+  align-content: center;
+  overflow: hidden;
+}
+
+body.game-active .die {
+  width: clamp(38px, 7dvh, 52px);
+  height: clamp(38px, 7dvh, 52px);
+  border-radius: 9px;
+}
+
+body.game-active #lockHintLine {
+  margin-top: 3px !important;
+  font-size: 0.66rem !important;
+}
+
+body.game-active #midRollBetting {
+  margin-top: 0;
+  padding: 6px 8px;
+}
+
+body.game-active .mid-bet-title {
+  margin-bottom: 4px;
+  font-size: 0.76rem;
+}
+
+body.game-active .mid-bet-row,
+body.game-active .mid-bet-actions,
+body.game-active .betting-actions {
+  gap: 5px;
+}
+
+body.game-active .bet-display,
+body.game-active .bet-amount-display {
+  height: 30px;
+  padding: 2px 8px;
+  font-size: 1.05rem;
+}
+
+body.game-active .step-btn {
+  width: 30px;
+  height: 30px;
+}
+
+body.game-active .active-board .action-btn-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  max-width: none;
+  margin: 0;
+}
+
+body.game-active .active-board #endTurnBtn {
+  grid-column: auto;
+  width: 100%;
+}
+
+body.game-active .active-board .pill-btn {
+  min-height: 36px;
+  padding: 6px 4px;
+  border-width: 1px;
+  font-size: 0.86rem;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  white-space: normal;
+  text-shadow: none;
+  box-shadow: none;
+}
+
+body.game-active .msg-box {
+  min-height: 22px;
+  margin-top: 0;
+  padding: 4px 2px 0;
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+body.game-active #bettingPanel {
+  max-height: 100%;
+  margin: 0;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+body.game-active #resultsBar {
+  margin: 0;
+  padding: 8px;
+}
+
+@media (max-height: 700px) {
+  body.game-active #gameScreen {
+    gap: 4px;
+  }
+
+  body.game-active .pot-info-bar {
+    min-height: 40px;
+    padding-block: 4px;
+  }
+
+  body.game-active .coin-stack-art {
+    width: 48px;
+    height: 34px;
+  }
+
+  body.game-active .opp-card {
+    flex-basis: 116px;
+    min-width: 116px;
+    padding: 4px 6px;
+  }
+
+  body.game-active .opp-qual-slots {
+    display: none;
+  }
+
+  body.game-active .active-board {
+    grid-template-rows: auto auto repeat(3, minmax(44px, 1fr)) auto auto;
+    gap: 4px;
+    padding: 6px;
+  }
+
+  body.game-active .hand-zone {
+    padding: 4px 6px;
+  }
+
+  body.game-active .zone-label {
+    font-size: 0.68rem;
+    margin-bottom: 2px;
+  }
+
+  body.game-active .die {
+    width: clamp(32px, 6.5dvh, 44px);
+    height: clamp(32px, 6.5dvh, 44px);
+  }
+
+  body.game-active .active-board .pill-btn {
+    min-height: 32px;
+    font-size: 0.76rem;
+  }
+
+  body.game-active .msg-box {
+    min-height: 18px;
+    font-size: 0.64rem;
+  }
+}
+
+@media (max-width: 430px) {
+  body.game-active #app {
+    padding-inline: 5px;
+  }
+
+  body.game-active .players-strip {
+    margin-right: 42px;
+  }
+
+  body.game-active .player-tab {
+    min-width: 92px;
+  }
+
+  body.game-active .pot-info-bar {
+    grid-template-columns: 58px minmax(0, 1fr) 48px;
+  }
+
+  body.game-active .active-board .pill-btn {
+    font-size: 0.72rem;
+  }
+}

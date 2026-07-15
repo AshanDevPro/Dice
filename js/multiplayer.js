@@ -47,14 +47,20 @@ const auth = {
 
 // ── Sound toggle ──────────────────────────────────────────────────────────────
 function toggleSoundBtn() {
-  const muted = window.SFX && window.SFX.toggleMute();
-  document.getElementById('soundToggleBtn').textContent = muted ? '🔇' : '🔊';
+  if (!window.SFX) return;
+  const muted = window.SFX.toggleMute();
+  updateSoundControls();
+  if (!muted && window.SFX.yourTurn) window.SFX.yourTurn();
 }
+
+function updateSoundControls() {
+  const btn = document.getElementById('menuSoundBtn');
+  if (!btn || !window.SFX) return;
+  btn.textContent = window.SFX.isMuted() ? 'Sound Off' : 'Sound On';
+}
+
 // Reflect stored mute state on load
-(function () {
-  if (window.SFX && window.SFX.isMuted())
-    document.getElementById('soundToggleBtn').textContent = '🔇';
-})();
+updateSoundControls();
 
 // ── Auth screen logic ─────────────────────────────────────────────────────────
 function authShowError(msg) {
@@ -66,6 +72,7 @@ function authShowError(msg) {
 function authShowLobby() {
   document.getElementById('authScreen').style.display  = 'none';
   document.getElementById('lobbyScreen').style.display = '';
+  setGameActive(false);
   // Pre-fill name input
   const nameEl = document.getElementById('lobbyName');
   if (auth.username) {
@@ -75,6 +82,7 @@ function authShowLobby() {
   }
   // Show account badge
   updateAccountBadge();
+  updateMenuState();
   showPaymentReturnMessage();
   // Set server URL
   document.getElementById('lobbyServer').value = _wsDefault;
@@ -106,6 +114,7 @@ function updateAccountBadge() {
   } else {
     badge.style.display = 'none';
   }
+  updateMenuState();
 }
 
 function showPaymentReturnMessage() {
@@ -168,6 +177,8 @@ async function authLogout() {
     }).catch(() => {});
   }
   disconnectWS();
+  setGameActive(false);
+  closeGameMenu();
   document.getElementById('lobbyScreen').style.display = 'none';
   document.getElementById('authScreen').style.display  = '';
   // Reset auth form fields
@@ -272,11 +283,17 @@ document.getElementById('regPassword').addEventListener('keypress', e => {
 });
 
 // ── Screen helpers ────────────────────────────────────────────────────────────
+function setGameActive(active) {
+  document.body.classList.toggle('game-active', !!active);
+}
+
 function showScreen(id) {
   ['lobbyScreen','gameScreen'].forEach(s => {
     const el = document.getElementById(s);
     if (el) el.style.display = s === id ? '' : 'none';
   });
+  setGameActive(id === 'gameScreen');
+  updateMenuState();
 }
 
 function lobbyError(msg) {
@@ -391,10 +408,7 @@ document.getElementById('vsComputerBtn').addEventListener('click', () => {
 });
 
 document.getElementById('lobbyBackBtn').addEventListener('click', () => {
-  disconnectWS();
-  document.getElementById('lobbyConnect').style.display = 'block';
-  document.getElementById('lobbyWaiting').style.display = 'none';
-  lobbyError('');
+  returnToLobby();
 });
 
 // ── WebSocket connection ──────────────────────────────────────────────────────
@@ -475,7 +489,12 @@ function disconnectWS() {
   mp.connecting = false;
   mp.myId       = null;
   mp.roomCode   = null;
+  mp.gameState  = null;
+  mp.isSinglePlayer = false;
+  window._onlineSelected = new Set();
+  releaseWakeLock();
   setLobbyButtons(false);
+  updateMenuState();
 }
 
 // ── Server message handler ────────────────────────────────────────────────────
@@ -529,8 +548,7 @@ function handleServerMsg(msg) {
       break;
 
     case 'round_start':
-      document.getElementById('lobbyScreen').style.display  = 'none';
-      document.getElementById('gameScreen').style.display   = 'block';
+      showScreen('gameScreen');
       document.getElementById('resultsBar').style.display   = 'none';
       document.getElementById('resultsOverlay').style.display = 'none';
       showMsg('Round ' + msg.round + ' started! Ante collected.');
@@ -575,7 +593,7 @@ function handleServerMsg(msg) {
 
     case 'betting_done':
       document.getElementById('bettingPanel').style.display = 'none';
-      document.getElementById('activeBoard').style.display  = 'block';
+      document.getElementById('activeBoard').style.display  = '';
       break;
 
     case 'phase_change':
@@ -646,6 +664,222 @@ function shareRoomLink() {
     fb.textContent = 'Code: ' + code;
   }
 }
+
+function currentInvitePayload() {
+  const code = mp.roomCode;
+  const base = window.location.href.split('?')[0];
+  const url  = code ? base + '?room=' + encodeURIComponent(code) : base;
+  return {
+    title: code ? 'PignusDice - Room ' + code : 'PignusDice',
+    url,
+    text: code
+      ? "You've been invited to PignusDice. Room: " + code + "\nJoin here: " + url
+      : "Join me on PignusDice: " + url,
+  };
+}
+
+function copyInviteText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve, reject) => {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.left = '-9999px';
+    area.style.top = '0';
+    document.body.appendChild(area);
+    area.focus();
+    area.select();
+    try {
+      if (document.execCommand('copy')) resolve();
+      else reject(new Error('copy failed'));
+    } catch (error) {
+      reject(error);
+    } finally {
+      document.body.removeChild(area);
+    }
+  });
+}
+
+function showShareFallback(feedbackEl, text, message) {
+  if (!feedbackEl) return;
+  feedbackEl.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'share-fallback-card';
+  const note = document.createElement('div');
+  note.textContent = message;
+  const field = document.createElement('textarea');
+  field.className = 'share-text';
+  field.readOnly = true;
+  field.value = text;
+  field.addEventListener('focus', () => field.select());
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'share-copy-btn';
+  btn.textContent = 'Copy Invite';
+  btn.addEventListener('click', async () => {
+    try {
+      await copyInviteText(text);
+      note.textContent = 'Invite copied.';
+    } catch {
+      field.focus();
+      field.select();
+      note.textContent = 'Select and copy the invite below.';
+    }
+  });
+  wrap.append(note, field, btn);
+  feedbackEl.appendChild(wrap);
+  field.focus();
+  field.select();
+}
+
+shareRoomLink = async function shareRoomLink(feedbackId = 'shareFeedback') {
+  const payload = currentInvitePayload();
+  const fb = document.getElementById(feedbackId) || document.getElementById('shareFeedback');
+  if (fb) {
+    fb.textContent = '';
+    fb.style.color = '#06d6a0';
+  }
+
+  if (navigator.share && window.isSecureContext) {
+    try {
+      await navigator.share(payload);
+      if (fb) fb.textContent = 'Invite ready.';
+      return;
+    } catch (error) {
+      if (error && error.name === 'AbortError') return;
+    }
+  }
+
+  try {
+    await copyInviteText(payload.text);
+    if (fb) {
+      fb.textContent = 'Invite copied to clipboard.';
+      setTimeout(() => { if (fb.textContent === 'Invite copied to clipboard.') fb.textContent = ''; }, 3000);
+    }
+  } catch {
+    showShareFallback(
+      fb,
+      payload.text,
+      window.isSecureContext ? 'Copy this invite:' : 'Sharing is limited on HTTP. Copy this invite manually:'
+    );
+  }
+};
+
+function isVisible(id) {
+  const el = document.getElementById(id);
+  return !!el && getComputedStyle(el).display !== 'none' && !el.hidden;
+}
+
+function returnToLobby() {
+  disconnectWS();
+  releaseWakeLock();
+  mp.gameState = null;
+  mp.isSinglePlayer = false;
+  window._onlineSelected = new Set();
+
+  const resultsOverlay = document.getElementById('resultsOverlay');
+  const resultsBar = document.getElementById('resultsBar');
+  const bettingPanel = document.getElementById('bettingPanel');
+  const activeBoard = document.getElementById('activeBoard');
+  if (resultsOverlay) resultsOverlay.style.display = 'none';
+  if (resultsBar) resultsBar.style.display = 'none';
+  if (bettingPanel) bettingPanel.style.display = 'none';
+  if (activeBoard) activeBoard.style.display = '';
+
+  document.getElementById('lobbyConnect').style.display = 'block';
+  document.getElementById('lobbyWaiting').style.display = 'none';
+  document.getElementById('lobbyPlayerList').innerHTML = '';
+  document.getElementById('lobbyStatusMsg').textContent = 'Waiting for players...';
+  document.getElementById('shareFeedback').textContent = '';
+  lobbyError('');
+  showScreen('lobbyScreen');
+  closeGameMenu();
+}
+
+function updateMenuState() {
+  const menuButton = document.getElementById('menuButton');
+  const roomInfo = document.getElementById('menuRoomInfo');
+  const leaveBtn = document.getElementById('menuLeaveBtn');
+  const shareBtn = document.getElementById('menuShareBtn');
+  const adminLink = document.getElementById('menuAdminLink');
+  if (!menuButton || !roomInfo) return;
+
+  const inGame = isVisible('gameScreen');
+  const inLobby = isVisible('lobbyScreen');
+  const inWaitingRoom = isVisible('lobbyWaiting');
+  const roomLabel = mp.roomCode
+    ? (mp.isSinglePlayer ? 'Practice game' : 'Room ' + mp.roomCode)
+    : inGame ? 'Game in progress'
+    : inLobby ? 'Lobby'
+    : 'Signed out';
+
+  roomInfo.textContent = roomLabel;
+  if (leaveBtn) leaveBtn.disabled = !(inGame || inWaitingRoom || mp.connected || mp.roomCode);
+  if (shareBtn) shareBtn.textContent = mp.roomCode ? 'Share Room Invite' : 'Share Game Link';
+  if (adminLink) adminLink.hidden = auth.role !== 'admin';
+  updateSoundControls();
+}
+
+function openGameMenu() {
+  const panel = document.getElementById('gameMenuPanel');
+  const backdrop = document.getElementById('menuBackdrop');
+  const button = document.getElementById('menuButton');
+  if (!panel || !backdrop || !button) return;
+  updateMenuState();
+  panel.hidden = false;
+  backdrop.hidden = false;
+  button.setAttribute('aria-expanded', 'true');
+  const feedback = document.getElementById('menuFeedback');
+  if (feedback) feedback.textContent = '';
+}
+
+function closeGameMenu() {
+  const panel = document.getElementById('gameMenuPanel');
+  const backdrop = document.getElementById('menuBackdrop');
+  const button = document.getElementById('menuButton');
+  if (panel) panel.hidden = true;
+  if (backdrop) backdrop.hidden = true;
+  if (button) button.setAttribute('aria-expanded', 'false');
+}
+
+function initGameMenu() {
+  const menuButton = document.getElementById('menuButton');
+  const closeBtn = document.getElementById('menuCloseBtn');
+  const backdrop = document.getElementById('menuBackdrop');
+  const leaveBtn = document.getElementById('menuLeaveBtn');
+  const shareBtn = document.getElementById('menuShareBtn');
+  const buyBtn = document.getElementById('menuBuyTokensBtn');
+  const redeemBtn = document.getElementById('menuRedeemBtn');
+  const soundBtn = document.getElementById('menuSoundBtn');
+
+  if (menuButton) menuButton.addEventListener('click', () => {
+    const panel = document.getElementById('gameMenuPanel');
+    if (panel && !panel.hidden) closeGameMenu();
+    else openGameMenu();
+  });
+  if (closeBtn) closeBtn.addEventListener('click', closeGameMenu);
+  if (backdrop) backdrop.addEventListener('click', closeGameMenu);
+  if (leaveBtn) leaveBtn.addEventListener('click', returnToLobby);
+  if (shareBtn) shareBtn.addEventListener('click', () => shareRoomLink('menuFeedback'));
+  if (buyBtn) buyBtn.addEventListener('click', () => {
+    closeGameMenu();
+    openTokenPacks();
+  });
+  if (redeemBtn) redeemBtn.addEventListener('click', () => {
+    closeGameMenu();
+    openRewardRedeem();
+  });
+  if (soundBtn) soundBtn.addEventListener('click', toggleSoundBtn);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeGameMenu();
+  });
+  updateMenuState();
+}
+
+initGameMenu();
 
 function renderLobbyPlayers(players) {
   const COLORS = ['#e63e6d','#06d6a0','#f59e1b','#5cc8f5','#b06dff','#ff9a3c'];
@@ -984,8 +1218,8 @@ function renderOnlineGameOver(msg) {
   }
   body.innerHTML = bodyHtml;
 
-  btn.textContent = '🔄 NEW GAME';
-  btn.onclick = () => { disconnectWS(); location.reload(); };
+  btn.textContent = 'NEW GAME';
+  btn.onclick = returnToLobby;
   document.getElementById('resultsOverlay').style.display = 'flex';
   releaseWakeLock();
 

@@ -149,8 +149,25 @@
       <img class="pig-logo" src="assets/pig_logo.png" alt="" draggable="false">
     </div>
 
-    <button class="sound-toggle" id="soundToggleBtn" onclick="toggleSoundBtn()" title="Sound" aria-label="Sound"></button>
+    <button class="menu-button" id="menuButton" type="button" title="Menu" aria-label="Open menu" aria-controls="gameMenuPanel" aria-expanded="false"></button>
   </div>
+
+  <div class="menu-backdrop" id="menuBackdrop" hidden></div>
+  <nav class="game-menu" id="gameMenuPanel" aria-label="Game menu" hidden>
+    <div class="game-menu-head">
+      <span>Menu</span>
+      <button class="menu-close-btn" id="menuCloseBtn" type="button" aria-label="Close menu">Close</button>
+    </div>
+    <div class="game-menu-room" id="menuRoomInfo">Lobby</div>
+    <button class="game-menu-item" id="menuShareBtn" type="button">Share Invite</button>
+    <button class="game-menu-item" id="menuLeaveBtn" type="button">Leave Game / Lobby</button>
+    <button class="game-menu-item" id="menuBuyTokensBtn" type="button">Buy Tokens</button>
+    <button class="game-menu-item" id="menuRedeemBtn" type="button">Redeem Reward Code</button>
+    <button class="game-menu-item" id="menuSoundBtn" type="button">Sound On</button>
+    <a class="game-menu-item game-menu-link" id="menuAdminLink" href="/admin.html" hidden>Admin Dashboard</a>
+    <div class="game-menu-note" id="menuRewardNote">Admins create reward codes in the Rewards tab of the admin dashboard. Players redeem codes here.</div>
+    <div class="game-menu-feedback" id="menuFeedback" role="status"></div>
+  </nav>
 
   <div class="game-layout">
     <div class="ad-slot ad-slot-side">📢 Ad</div>
@@ -385,9 +402,9 @@
 
           <!-- Main action buttons -->
           <div class="action-btn-row">
-            <button class="pill-btn pill-btn-roll" id="rollBtn">🎲 ROLL DICE (10)</button>
-            <button class="pill-btn pill-btn-lock" id="lockBtn" disabled>🔒 LOCK SELECTED DICE</button>
-            <button class="pill-btn pill-btn-end"  id="endTurnBtn">🪙 END TURN &amp; PLACE BET</button>
+            <button class="pill-btn pill-btn-roll" id="rollBtn">ROLL (10)</button>
+            <button class="pill-btn pill-btn-lock" id="lockBtn" disabled>LOCK DICE</button>
+            <button class="pill-btn pill-btn-end"  id="endTurnBtn">END / BET</button>
           </div>
 
           <div class="msg-box" id="msgBox">Waiting for game to start...</div>
