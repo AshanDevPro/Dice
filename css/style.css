@@ -1882,6 +1882,11 @@ body .header .menu-button {
   cursor: pointer;
 }
 
+.game-menu-item.danger {
+  border-color: rgba(255, 77, 109, 0.76);
+  color: #ff9aaa;
+}
+
 .game-menu-item:hover,
 .game-menu-item:focus-visible {
   border-color: var(--gold-bright);
@@ -1891,6 +1896,42 @@ body .header .menu-button {
 .game-menu-item:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.game-menu-audio {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 216, 115, 0.42);
+  border-radius: 8px;
+  background: rgba(8, 2, 6, 0.46);
+}
+
+.game-menu-audio-head {
+  color: var(--gold-bright);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+}
+
+.game-menu-volume {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 42px;
+  gap: 8px;
+  align-items: center;
+  margin-top: 9px;
+  color: rgba(255, 239, 196, 0.86);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.game-menu-volume input {
+  width: 100%;
+  accent-color: var(--gold-bright);
+}
+
+.game-menu-volume strong {
+  color: var(--gold-bright);
+  text-align: right;
 }
 
 .game-menu-note {
@@ -1943,6 +1984,23 @@ body .header .menu-button {
   cursor: pointer;
 }
 
+.share-quick-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.share-quick-actions a {
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 216, 115, 0.48);
+  border-radius: 7px;
+  background: rgba(82, 0, 33, 0.72);
+  color: var(--gold-bright);
+  text-decoration: none;
+  font-weight: 800;
+}
+
 @media (max-width: 660px) {
   body .header .menu-button {
     right: 0;
@@ -1985,7 +2043,7 @@ body.game-active .header {
 
 body.game-active .brand-lockup,
 body.game-active .mascot-showcase,
-body.game-active .ad-slot-bottom {
+body.game-active .ad-slot {
   display: none;
 }
 

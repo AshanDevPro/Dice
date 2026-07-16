@@ -26,6 +26,7 @@ Token purchases use Stripe Checkout when these environment variables are set:
 $env:STRIPE_SECRET_KEY="sk_live_or_test_..."
 $env:STRIPE_WEBHOOK_SECRET="whsec_..."
 $env:PUBLIC_URL="https://your-domain.com"
+$env:FORCE_HTTPS="true"
 ```
 
 Configure Stripe to send `checkout.session.completed` webhooks to:
@@ -35,5 +36,7 @@ https://your-domain.com/api/stripe/webhook
 ```
 
 Admins can create token reward codes from `http://localhost:3000/admin.html` under the Rewards tab. Signed-in players can redeem those codes from the game lobby.
+
+Room invites use `https://your-domain.com/join?room=CODE`; the server routes `/join` to the game page and the browser joins with `wss://` when opened over HTTPS.
 
 See [SELF_HOSTING.md](SELF_HOSTING.md) for production setup and backups.

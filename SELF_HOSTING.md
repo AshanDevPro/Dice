@@ -46,6 +46,12 @@ Use Nginx or another reverse proxy and enable TLS. The proxy must forward WebSoc
 
 ```nginx
 server {
+    listen 80;
+    server_name your-domain.example;
+    return 308 https://$host$request_uri;
+}
+
+server {
     listen 443 ssl http2;
     server_name your-domain.example;
 
@@ -55,12 +61,14 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Real-IP $remote_addr;
     }
 }
 ```
 
-Configure a valid TLS certificate before exposing accounts on the internet. Never send passwords over plain HTTP on a public network.
+Configure a valid TLS certificate before exposing accounts on the internet. Set `PUBLIC_URL=https://your-domain.example` for payment redirects and `FORCE_HTTPS=true` if the Node server may receive direct public HTTP requests. Never send passwords over plain HTTP on a public network.
 
 ## 5. Back up your database
 

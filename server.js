@@ -134,6 +134,11 @@ function publicOrigin(req) {
   return `${proto}://${host}`;
 }
 
+function isSecureRequest(req) {
+  const proto = (req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  return proto === 'https' || !!req.socket.encrypted;
+}
+
 function formEncode(value, prefix, pairs = []) {
   if (value === undefined) return pairs;
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -193,6 +198,19 @@ const httpServer = http.createServer((req, res) => {
     });
     res.end(JSON.stringify(obj));
   };
+
+  if (process.env.FORCE_HTTPS === 'true' && !isSecureRequest(req)) {
+    const host = (req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0];
+    const isLocalhost = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host);
+    if (host && !isLocalhost) {
+      res.writeHead(308, {
+        Location: `https://${host}${req.url}`,
+        'Cache-Control': 'no-store',
+      });
+      res.end();
+      return;
+    }
+  }
 
   // ── POST /api/stripe/webhook ─────────────────────────────────────────────
   if (pathname === '/api/stripe/webhook' && req.method === 'POST') {
@@ -284,7 +302,7 @@ const httpServer = http.createServer((req, res) => {
   // ── GET /api/rooms ───────────────────────────────────────────────────────
   if (pathname === '/api/rooms' && req.method === 'GET') {
     const publicRooms = Object.values(rooms)
-      .filter(r => !r.isSinglePlayer)
+      .filter(r => !r.isSinglePlayer && !r.ended)
       .map(r => ({
         code: r.code,
         playerCount: r.players.filter(p => !p.isAI).length,
@@ -494,7 +512,9 @@ const httpServer = http.createServer((req, res) => {
   }
   let requestedFile;
   try {
-    requestedFile = pathname === '/' ? 'index.html' : decodeURIComponent(pathname).replace(/^\/+/, '');
+    requestedFile = (pathname === '/' || pathname === '/join')
+      ? 'index.html'
+      : decodeURIComponent(pathname).replace(/^\/+/, '');
   } catch {
     res.writeHead(400); res.end('Bad request'); return;
   }
@@ -509,12 +529,16 @@ const httpServer = http.createServer((req, res) => {
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); }
     else {
-      res.writeHead(200, {
+      const headers = {
         'Content-Type': `${mime}${['.html', '.css', '.js'].includes(ext) ? '; charset=utf-8' : ''}`,
         'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'same-origin',
         'X-Frame-Options': 'DENY',
-      });
+      };
+      if (isSecureRequest(req)) {
+        headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
+      }
+      res.writeHead(200, headers);
       res.end(req.method === 'HEAD' ? undefined : data);
     }
   });
@@ -556,12 +580,100 @@ function makeCode() {
 }
 
 function broadcast(room, msg) {
+  if (!room || room.closed) return;
   const str = JSON.stringify(msg);
   room.clients.forEach(c => { if (c.ws.readyState === 1) c.ws.send(str); });
 }
 
 function sendTo(client, msg) {
   if (client.ws.readyState === 1) client.ws.send(JSON.stringify(msg));
+}
+
+function isRoomLive(room) {
+  return !!room && !room.closed && !room.ended && rooms[room.code] === room;
+}
+
+function saveClientTokens(room, client) {
+  if (!room || room.isSinglePlayer || !client.userKey || !users[client.userKey]) return;
+  const player = room.players.find(p => p.id === client.id);
+  if (!player) return;
+  users[client.userKey].tokens = Math.max(player.tokens, 0);
+  users[client.userKey].updatedAt = new Date().toISOString();
+  database.save();
+}
+
+function lobbyPlayers(room) {
+  return room.players
+    .filter(player => !player.isAI)
+    .map(player => ({ id: player.id, name: player.name, color: player.color, isAI: false }));
+}
+
+function closeRoom(room) {
+  if (!room || room.closed) return;
+  room.closed = true;
+  room.clients.forEach(c => {
+    if (c.roomCode === room.code) c.roomCode = null;
+  });
+  delete rooms[room.code];
+}
+
+function announceHost(room) {
+  if (!isRoomLive(room) || room.started) return;
+  const host = room.players.find(player => !player.isAI);
+  if (!host) return;
+  broadcast(room, { type: 'host_changed', playerId: host.id, players: lobbyPlayers(room) });
+}
+
+function leaveRoom(client, reason = 'left') {
+  const room = rooms[client.roomCode];
+  if (!room) {
+    client.roomCode = null;
+    return;
+  }
+
+  const leavingPlayer = room.players.find(player => player.id === client.id);
+  const leavingPending = (room.pendingPlayers || []).find(player => player.id === client.id);
+  const playerName = leavingPlayer?.name || leavingPending?.name || client.name || 'Player';
+  const wasStarted = room.started;
+  const wasTurnPlayer = room.turnPlayerId === client.id;
+  const wasBettingPlayer = room.currentBetPlayerId === client.id || room.bettingQueue.includes(client.id);
+
+  saveClientTokens(room, client);
+  room.clients = room.clients.filter(c => c !== client);
+  room.pendingPlayers = (room.pendingPlayers || []).filter(player => player.id !== client.id);
+  room.players = room.players.filter(player => player.id !== client.id);
+  room.bettingQueue = (room.bettingQueue || []).filter(id => id !== client.id);
+  if (room.currentBetPlayerId === client.id) room.currentBetPlayerId = null;
+  if (wasTurnPlayer) room.turnPlayerId = null;
+  client.roomCode = null;
+
+  const humanPlayers = room.players.filter(player => !player.isAI);
+  if (!room.clients.length || !humanPlayers.length) {
+    closeRoom(room);
+    return;
+  }
+
+  broadcast(room, { type: 'player_left', playerId: client.id, playerName, reason });
+
+  if (room.ended) return;
+
+  if (!wasStarted) {
+    broadcast(room, { type: 'player_joined', players: lobbyPlayers(room) });
+    announceHost(room);
+    return;
+  }
+
+  broadcast(room, roomSnapshot(room));
+  const active = room.players.filter(player => player.tokens > 0 && !player.folded);
+  if (active.length < 2) {
+    endGame(room);
+    return;
+  }
+  if (wasBettingPlayer) {
+    serveBettingQueue(room);
+  } else if (wasTurnPlayer || !room.turnPlayerId || !getPlayer(room, room.turnPlayerId)) {
+    advanceTurnInPhase(room);
+  }
 }
 
 function roomSnapshot(room) {
@@ -591,8 +703,8 @@ function createRoom(code, hostClient, startTokens) {
   return {
     code, clients: [], players: [], pendingPlayers: [], pot: 0, round: 1, turnPlayerId: null,
     phase: 'lobby', currentBet: 0, startTokens: startTokens || START_TOKENS,
-    bettingQueue: [], bettingPhase: 'before_roll', started: false, subRound: 1,
-    isSinglePlayer: false,
+    bettingQueue: [], currentBetPlayerId: null, bettingPhase: 'before_roll',
+    started: false, subRound: 1, isSinglePlayer: false, closed: false, ended: false,
   };
 }
 
@@ -610,6 +722,7 @@ function canStillRoll(p) {
 }
 
 function startRound(room) {
+  if (!isRoomLive(room)) return;
   // Promote any pending players who joined during the last round
   if (room.pendingPlayers && room.pendingPlayers.length > 0) {
     room.pendingPlayers.forEach(p => {
@@ -643,6 +756,7 @@ function startRound(room) {
 }
 
 function broadcastTurnNotice(room) {
+  if (!isRoomLive(room)) return;
   const p = getPlayer(room, room.turnPlayerId);
   if (!p) return;
 
@@ -669,6 +783,7 @@ function broadcastTurnNotice(room) {
 }
 
 function startNextSubRound(room) {
+  if (!isRoomLive(room)) return;
   room.subRound++;
   room.phase = 'roll' + room.subRound;
   room.bettingPhase = 'before_roll';
@@ -697,6 +812,7 @@ function startNextSubRound(room) {
 }
 
 function advanceTurnInPhase(room) {
+  if (!isRoomLive(room)) return;
   const active = room.players.filter(p => p.tokens > 0 && !p.folded);
 
   if (active.every(p => p.phaseDone)) {
@@ -730,6 +846,7 @@ function advanceTurnInPhase(room) {
 }
 
 function rollDice(room, playerId) {
+  if (!isRoomLive(room)) return { error: 'Room closed' };
   const p = getPlayer(room, playerId);
   if (!p || room.turnPlayerId !== playerId) return { error: 'Not your turn' };
   // One roll per turn — lock dice then end your turn
@@ -772,6 +889,7 @@ function rollDice(room, playerId) {
 }
 
 function autoFailQualify(room, playerId) {
+  if (!isRoomLive(room)) return;
   const p = getPlayer(room, playerId);
   if (!p || p.phaseDone || p.folded) return; // already handled
   p.folded          = true;
@@ -785,6 +903,7 @@ function autoFailQualify(room, playerId) {
 }
 
 function autoBust(room, playerId) {
+  if (!isRoomLive(room)) return;
   const p = getPlayer(room, playerId);
   if (!p || p.folded || p.phaseDone) return;
   p.folded = true;
@@ -797,6 +916,7 @@ function autoBust(room, playerId) {
 }
 
 function lockDice(room, playerId, selectedIdx) {
+  if (!isRoomLive(room)) return { error: 'Room closed' };
   const p = getPlayer(room, playerId);
   if (!p || room.turnPlayerId !== playerId) return { error: 'Not your turn' };
   if (p.pendingAutoFold)                    return { error: 'Qualifying failed — auto-folding' };
@@ -825,6 +945,7 @@ function lockDice(room, playerId, selectedIdx) {
 }
 
 function endTurn(room, playerId) {
+  if (!isRoomLive(room)) return { error: 'Room closed' };
   const p = getPlayer(room, playerId);
   if (!p || room.turnPlayerId !== playerId) return { error: 'Not your turn' };
 
@@ -859,6 +980,7 @@ function endTurn(room, playerId) {
 
 // ── AI player logic ──────────────────────────────────────────────────────────
 function aiTakeTurn(room, playerId) {
+  if (!isRoomLive(room)) return;
   const p = getPlayer(room, playerId);
   if (!p || p.folded || p.pendingAutoFold || room.turnPlayerId !== playerId) return;
 
@@ -887,6 +1009,7 @@ function aiTakeTurn(room, playerId) {
 }
 
 function aiLockAndEnd(room, playerId) {
+  if (!isRoomLive(room)) return;
   const p = getPlayer(room, playerId);
   if (!p || p.folded) return;
   if (p.pendingAutoFold) return; // autoFailQualify timer will handle it
@@ -930,6 +1053,7 @@ function aiLockAndEnd(room, playerId) {
 }
 
 function aiBet(room, playerId) {
+  if (!isRoomLive(room)) return;
   const p = getPlayer(room, playerId);
   if (!p || p.folded) return;
   const callAmt = Math.max(0, room.currentBet - (p.roundBet || 0));
@@ -943,8 +1067,10 @@ function aiBet(room, playerId) {
 }
 
 function placeBet(room, playerId, action, amount) {
+  if (!isRoomLive(room)) return;
   const p = getPlayer(room, playerId);
   if (!p) return;
+  if (room.currentBetPlayerId === playerId) room.currentBetPlayerId = null;
   const callAmt = Math.max(0, room.currentBet - p.roundBet);
   if (action === 'fold') {
     p.folded = true;
@@ -962,7 +1088,9 @@ function placeBet(room, playerId, action, amount) {
 }
 
 function serveBettingQueue(room) {
+  if (!isRoomLive(room)) return;
   if (!room.bettingQueue.length) {
+    room.currentBetPlayerId = null;
     broadcast(room, { type: 'betting_done' });
     if (room.bettingPhase === 'after_roll') {
       // Player just placed their end-of-turn bet → advance to next player's turn
@@ -982,6 +1110,7 @@ function serveBettingQueue(room) {
   const pid = room.bettingQueue.shift();
   const p   = room.players.find(pl => pl.id === pid);
   if (!p || p.folded || p.tokens <= 0) { serveBettingQueue(room); return; }
+  room.currentBetPlayerId = pid;
   // AI auto-bets
   if (p.isAI) {
     setTimeout(() => aiBet(room, pid), 700);
@@ -995,6 +1124,7 @@ function serveBettingQueue(room) {
 }
 
 function resolveRound(room) {
+  if (!isRoomLive(room)) return;
   room.players.forEach(p => {
     if (!p.folded) {
       p.qualified  = p.qualifyHand.includes(1) && p.qualifyHand.includes(4);
@@ -1050,6 +1180,7 @@ function resolveRound(room) {
 }
 
 function endGame(room) {
+  if (!isRoomLive(room)) return;
   if (!room.isSinglePlayer) saveRoomTokens(room);
   if (room.gameId) {
     const highest = Math.max(...room.players.map(player => player.tokens));
@@ -1077,6 +1208,7 @@ function endGame(room) {
     players: room.players.map(p => ({ id:p.id, name:p.name, tokens:p.tokens, isAI: p.isAI || false })),
     isSinglePlayer: room.isSinglePlayer || false,
   });
+  room.ended = true;
 }
 
 // ── WebSocket server ─────────────────────────────────────────────────────────
@@ -1144,6 +1276,7 @@ wss.on('connection', ws => {
       case 'join_room': {
         const room = rooms[msg.code];
         if (!room)               { sendTo(client, { type:'error', msg:'Room not found' }); break; }
+        if (room.ended)          { sendTo(client, { type:'error', msg:'Room has ended' }); break; }
         if (room.isSinglePlayer) { sendTo(client, { type:'error', msg:'That is a private practice game' }); break; }
 
         const authUser = websocketUser(msg.sessionToken);
@@ -1232,17 +1365,17 @@ wss.on('connection', ws => {
         placeBet(room, client.id, msg.action, msg.amount || 0);
         break;
       }
+
+      case 'leave_room': {
+        leaveRoom(client, 'left');
+        sendTo(client, { type: 'room_left' });
+        break;
+      }
     }
   });
 
   ws.on('close', () => {
-    const room = rooms[client.roomCode];
-    if (!room) return;
-    room.clients = room.clients.filter(c => c !== client);
-    const p = getPlayer(room, client.id);
-    if (p) p.folded = true;
-    broadcast(room, { type:'player_left', playerId: client.id, playerName: client.name });
-    if (room.clients.length === 0) { delete rooms[client.roomCode]; }
+    leaveRoom(client, 'disconnected');
   });
 });
 

@@ -23,6 +23,24 @@ document.addEventListener('visibilitychange', () => {
 const _wsProto   = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const _wsDefault = _wsProto + '//' + window.location.host;
 
+function normalizeWebSocketUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return _wsDefault;
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const url = new URL(raw);
+      return (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + url.host + url.pathname + url.search;
+    } catch {
+      return raw;
+    }
+  }
+  if (/^ws:\/\//i.test(raw) && window.location.protocol === 'https:') {
+    return raw.replace(/^ws:\/\//i, 'wss://');
+  }
+  if (/^wss?:\/\//i.test(raw)) return raw;
+  return _wsProto + '//' + raw.replace(/^\/+/, '');
+}
+
 let mp = {
   ws:            null,
   myId:          null,
@@ -50,13 +68,25 @@ function toggleSoundBtn() {
   if (!window.SFX) return;
   const muted = window.SFX.toggleMute();
   updateSoundControls();
-  if (!muted && window.SFX.yourTurn) window.SFX.yourTurn();
+  if (!muted && window.SFX.yourTurn) {
+    window.SFX.startBackground?.();
+    window.SFX.yourTurn();
+  }
 }
 
 function updateSoundControls() {
   const btn = document.getElementById('menuSoundBtn');
-  if (!btn || !window.SFX) return;
-  btn.textContent = window.SFX.isMuted() ? 'Sound Off' : 'Sound On';
+  if (!window.SFX) return;
+  const muted = window.SFX.isMuted();
+  if (btn) {
+    btn.textContent = muted ? 'Unmute Audio' : 'Mute Audio';
+    btn.setAttribute('aria-pressed', String(!muted));
+  }
+  const slider = document.getElementById('menuVolumeRange');
+  const value = document.getElementById('menuVolumeValue');
+  const percent = Math.round((window.SFX.getVolume ? window.SFX.getVolume() : 0.7) * 100);
+  if (slider && document.activeElement !== slider) slider.value = String(percent);
+  if (value) value.textContent = percent + '%';
 }
 
 // Reflect stored mute state on load
@@ -146,6 +176,7 @@ async function claimDailyBonus() {
     if (res.ok) {
       auth.tokens = data.tokens;
       updateAccountBadge();
+      if (window.SFX) window.SFX.token();
       if (fbEl) { fbEl.textContent = '✅ +' + data.tokensAdded + ' tokens claimed!'; fbEl.style.color = '#06d6a0'; }
     } else if (res.status === 429) {
       if (fbEl) { fbEl.textContent = '⏳ Next bonus in ' + data.hoursLeft + 'h'; fbEl.style.color = '#f59e1b'; }
@@ -163,6 +194,7 @@ async function claimDailyBonus() {
 }
 
 async function authLogout() {
+  if (mp.roomCode && !confirmLeaveActiveRoom('Log out and leave the current game?')) return;
   const oldToken = auth.sessionToken;
   auth.sessionToken = null;
   auth.username     = null;
@@ -176,7 +208,7 @@ async function authLogout() {
       headers: { 'Authorization': 'Bearer ' + oldToken },
     }).catch(() => {});
   }
-  disconnectWS();
+  leaveCurrentRoom({ confirm: false, closeSocket: true, resetLobby: false });
   setGameActive(false);
   closeGameMenu();
   document.getElementById('lobbyScreen').style.display = 'none';
@@ -349,7 +381,7 @@ async function fetchAndShowRooms() {
       card.querySelector('.room-browser-join-btn').onclick = () => {
         if (mp.connecting) return;
         mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
-        mp.serverUrl = document.getElementById('lobbyServer').value.trim() || _wsDefault;
+        mp.serverUrl = normalizeWebSocketUrl(document.getElementById('lobbyServer').value);
         connectWS(() => {
           mp.ws.send(JSON.stringify({
             type: 'join_room', code: r.code, name: mp.myName,
@@ -367,7 +399,7 @@ async function fetchAndShowRooms() {
 document.getElementById('lobbyCreateBtn').addEventListener('click', () => {
   if (mp.connecting) return;
   mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
-  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || _wsDefault;
+  mp.serverUrl = normalizeWebSocketUrl(document.getElementById('lobbyServer').value);
   connectWS(() => {
     mp.ws.send(JSON.stringify({
       type: 'create_room', name: mp.myName,
@@ -379,7 +411,7 @@ document.getElementById('lobbyCreateBtn').addEventListener('click', () => {
 document.getElementById('lobbyJoinConfirmBtn').addEventListener('click', () => {
   if (mp.connecting) return;
   mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
-  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || _wsDefault;
+  mp.serverUrl = normalizeWebSocketUrl(document.getElementById('lobbyServer').value);
   const code   = document.getElementById('lobbyCode').value.trim().toUpperCase();
   if (!code) { lobbyError('Enter a room code'); return; }
   connectWS(() => {
@@ -397,7 +429,7 @@ document.getElementById('lobbyStartBtn').addEventListener('click', () => {
 document.getElementById('vsComputerBtn').addEventListener('click', () => {
   if (mp.connecting) return;
   mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
-  mp.serverUrl = document.getElementById('lobbyServer').value.trim() || _wsDefault;
+  mp.serverUrl = normalizeWebSocketUrl(document.getElementById('lobbyServer').value);
   connectWS(() => {
     mp.ws.send(JSON.stringify({
       type: 'create_room', name: mp.myName,
@@ -421,6 +453,9 @@ function setLobbyButtons(disabled) {
 
 function connectWS(onOpen) {
   if (mp.connecting) return;
+  mp.serverUrl = normalizeWebSocketUrl(mp.serverUrl);
+  const serverInput = document.getElementById('lobbyServer');
+  if (serverInput) serverInput.value = mp.serverUrl;
   mp.connecting = true;
   lobbyError('');
   setLobbyButtons(true);
@@ -478,8 +513,12 @@ function connectWS(onOpen) {
   };
 }
 
-function disconnectWS() {
+function disconnectWS(options = {}) {
+  const notifyServer = options.notifyServer !== false;
   if (mp.ws) {
+    if (notifyServer && mp.roomCode && mp.ws.readyState === WebSocket.OPEN) {
+      try { mp.ws.send(JSON.stringify({ type: 'leave_room' })); } catch {}
+    }
     mp.ws.onclose = null;
     mp.ws.onerror = null;
     mp.ws.close();
@@ -624,6 +663,23 @@ function handleServerMsg(msg) {
       showMsg(msg.playerName + ' disconnected.', 'warn');
       break;
 
+    case 'host_changed':
+      mp.isHost = msg.playerId === mp.myId;
+      if (mp.isHost && isVisible('lobbyWaiting')) {
+        const players = msg.players || [];
+        document.getElementById('lobbyStatusMsg').textContent =
+          players.length >= 2
+            ? 'You are now the host. You can start the game.'
+            : 'You are now the host. Waiting for players to join...';
+        document.getElementById('lobbyStartBtn').style.display = players.length >= 2 ? '' : 'none';
+      }
+      updateMenuState();
+      break;
+
+    case 'room_left':
+      returnToLobby({ confirm: false, alreadyDisconnected: true });
+      break;
+
     case 'error':
       showMsg(msg.msg, 'error');
       break;
@@ -667,8 +723,9 @@ function shareRoomLink() {
 
 function currentInvitePayload() {
   const code = mp.roomCode;
-  const base = window.location.href.split('?')[0];
-  const url  = code ? base + '?room=' + encodeURIComponent(code) : base;
+  const inviteUrl = code ? new URL('/join', window.location.origin) : new URL('/', window.location.origin);
+  if (code) inviteUrl.searchParams.set('room', code);
+  const url = inviteUrl.toString();
   return {
     title: code ? 'PignusDice - Room ' + code : 'PignusDice',
     url,
@@ -729,7 +786,19 @@ function showShareFallback(feedbackEl, text, message) {
       note.textContent = 'Select and copy the invite below.';
     }
   });
+  const actions = document.createElement('div');
+  actions.className = 'share-quick-actions';
+  const whatsapp = document.createElement('a');
+  whatsapp.href = 'https://wa.me/?text=' + encodeURIComponent(text);
+  whatsapp.target = '_blank';
+  whatsapp.rel = 'noopener';
+  whatsapp.textContent = 'WhatsApp';
+  const email = document.createElement('a');
+  email.href = 'mailto:?subject=' + encodeURIComponent('PignusDice invite') + '&body=' + encodeURIComponent(text);
+  email.textContent = 'Email';
+  actions.append(whatsapp, email);
   wrap.append(note, field, btn);
+  wrap.appendChild(actions);
   feedbackEl.appendChild(wrap);
   field.focus();
   field.select();
@@ -773,13 +842,18 @@ function isVisible(id) {
   return !!el && getComputedStyle(el).display !== 'none' && !el.hidden;
 }
 
-function returnToLobby() {
-  disconnectWS();
-  releaseWakeLock();
-  mp.gameState = null;
-  mp.isSinglePlayer = false;
-  window._onlineSelected = new Set();
+function confirmLeaveActiveRoom(message) {
+  const overlay = document.getElementById('resultsOverlay');
+  const gameOverVisible = overlay && getComputedStyle(overlay).display !== 'none';
+  const activeGame = isVisible('gameScreen') && !gameOverVisible;
+  const waitingRoom = isVisible('lobbyWaiting');
+  if (!activeGame && !waitingRoom && !mp.roomCode) return true;
+  return window.confirm(message || (activeGame
+    ? 'Leave this active game and return to the lobby?'
+    : 'Leave this room and return to the lobby?'));
+}
 
+function resetLobbyView() {
   const resultsOverlay = document.getElementById('resultsOverlay');
   const resultsBar = document.getElementById('resultsBar');
   const bettingPanel = document.getElementById('bettingPanel');
@@ -799,17 +873,51 @@ function returnToLobby() {
   closeGameMenu();
 }
 
+function leaveCurrentRoom(options = {}) {
+  const confirmFirst = options.confirm !== false;
+  if (confirmFirst && !confirmLeaveActiveRoom()) return false;
+  if (!options.alreadyDisconnected) {
+    disconnectWS({ notifyServer: true });
+  } else {
+    if (mp.ws) {
+      mp.ws.onclose = null;
+      mp.ws.onerror = null;
+      try { mp.ws.close(); } catch {}
+    }
+    mp.connected = false;
+    mp.connecting = false;
+    mp.myId = null;
+    mp.roomCode = null;
+    mp.ws = null;
+  }
+  releaseWakeLock();
+  mp.gameState = null;
+  mp.isSinglePlayer = false;
+  mp.isHost = false;
+  window._onlineSelected = new Set();
+  if (options.resetLobby !== false) resetLobbyView();
+  return true;
+}
+
+function returnToLobby(options = {}) {
+  if (options && options.type) options = {};
+  return leaveCurrentRoom(options);
+}
+
 function updateMenuState() {
   const menuButton = document.getElementById('menuButton');
   const roomInfo = document.getElementById('menuRoomInfo');
   const leaveBtn = document.getElementById('menuLeaveBtn');
+  const returnBtn = document.getElementById('menuReturnLobbyBtn');
   const shareBtn = document.getElementById('menuShareBtn');
-  const adminLink = document.getElementById('menuAdminLink');
+  const resumeBtn = document.getElementById('menuResumeBtn');
+  const exitBtn = document.getElementById('menuExitBtn');
   if (!menuButton || !roomInfo) return;
 
   const inGame = isVisible('gameScreen');
   const inLobby = isVisible('lobbyScreen');
   const inWaitingRoom = isVisible('lobbyWaiting');
+  const canLeaveRoom = inGame || inWaitingRoom || mp.connected || mp.roomCode;
   const roomLabel = mp.roomCode
     ? (mp.isSinglePlayer ? 'Practice game' : 'Room ' + mp.roomCode)
     : inGame ? 'Game in progress'
@@ -817,9 +925,11 @@ function updateMenuState() {
     : 'Signed out';
 
   roomInfo.textContent = roomLabel;
-  if (leaveBtn) leaveBtn.disabled = !(inGame || inWaitingRoom || mp.connected || mp.roomCode);
+  if (resumeBtn) resumeBtn.disabled = !(inGame || inWaitingRoom);
+  if (leaveBtn) leaveBtn.disabled = !canLeaveRoom;
+  if (returnBtn) returnBtn.disabled = !canLeaveRoom && !inLobby;
   if (shareBtn) shareBtn.textContent = mp.roomCode ? 'Share Room Invite' : 'Share Game Link';
-  if (adminLink) adminLink.hidden = auth.role !== 'admin';
+  if (exitBtn) exitBtn.disabled = !auth.sessionToken;
   updateSoundControls();
 }
 
@@ -849,11 +959,15 @@ function initGameMenu() {
   const menuButton = document.getElementById('menuButton');
   const closeBtn = document.getElementById('menuCloseBtn');
   const backdrop = document.getElementById('menuBackdrop');
+  const resumeBtn = document.getElementById('menuResumeBtn');
   const leaveBtn = document.getElementById('menuLeaveBtn');
+  const returnBtn = document.getElementById('menuReturnLobbyBtn');
   const shareBtn = document.getElementById('menuShareBtn');
   const buyBtn = document.getElementById('menuBuyTokensBtn');
   const redeemBtn = document.getElementById('menuRedeemBtn');
   const soundBtn = document.getElementById('menuSoundBtn');
+  const volumeRange = document.getElementById('menuVolumeRange');
+  const exitBtn = document.getElementById('menuExitBtn');
 
   if (menuButton) menuButton.addEventListener('click', () => {
     const panel = document.getElementById('gameMenuPanel');
@@ -862,7 +976,9 @@ function initGameMenu() {
   });
   if (closeBtn) closeBtn.addEventListener('click', closeGameMenu);
   if (backdrop) backdrop.addEventListener('click', closeGameMenu);
+  if (resumeBtn) resumeBtn.addEventListener('click', closeGameMenu);
   if (leaveBtn) leaveBtn.addEventListener('click', returnToLobby);
+  if (returnBtn) returnBtn.addEventListener('click', returnToLobby);
   if (shareBtn) shareBtn.addEventListener('click', () => shareRoomLink('menuFeedback'));
   if (buyBtn) buyBtn.addEventListener('click', () => {
     closeGameMenu();
@@ -873,6 +989,12 @@ function initGameMenu() {
     openRewardRedeem();
   });
   if (soundBtn) soundBtn.addEventListener('click', toggleSoundBtn);
+  if (volumeRange) volumeRange.addEventListener('input', () => {
+    if (!window.SFX) return;
+    window.SFX.setVolume(Number(volumeRange.value) / 100);
+    updateSoundControls();
+  });
+  if (exitBtn) exitBtn.addEventListener('click', authLogout);
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape') closeGameMenu();
   });
@@ -888,11 +1010,18 @@ function renderLobbyPlayers(players) {
   players.forEach((p, i) => {
     const el = document.createElement('div');
     el.className = 'lobby-player-entry';
-    el.innerHTML =
-      '<span class="online-indicator"></span>' +
-      '<span class="lobby-player-dot" style="background:' + COLORS[i % COLORS.length] + '"></span>' +
-      '<span class="lobby-player-name">' + p.name + '</span>' +
-      '<span class="lobby-player-tag">' + (p.id === mp.myId ? '(You)' : '') + '</span>';
+    const online = document.createElement('span');
+    online.className = 'online-indicator';
+    const dot = document.createElement('span');
+    dot.className = 'lobby-player-dot';
+    dot.style.background = p.color || COLORS[i % COLORS.length];
+    const name = document.createElement('span');
+    name.className = 'lobby-player-name';
+    name.textContent = p.name || 'Player';
+    const tag = document.createElement('span');
+    tag.className = 'lobby-player-tag';
+    tag.textContent = p.id === mp.myId ? '(You)' : '';
+    el.append(online, dot, name, tag);
     list.appendChild(el);
   });
 }
@@ -1219,13 +1348,14 @@ function renderOnlineGameOver(msg) {
   body.innerHTML = bodyHtml;
 
   btn.textContent = 'NEW GAME';
-  btn.onclick = returnToLobby;
+  btn.onclick = () => returnToLobby({ confirm: false });
   document.getElementById('resultsOverlay').style.display = 'flex';
   releaseWakeLock();
 
   if (window.SFX) {
-    if (!msg.isSinglePlayer && sorted[0].id === mp.myId) window.SFX.gameWin();
-    else if (msg.isSinglePlayer) window.SFX.gameWin(); // always celebrate practice
+    if (msg.isSinglePlayer) window.SFX.gameWin(); // always celebrate practice
+    else if (sorted[0] && sorted[0].id === mp.myId) window.SFX.gameWin();
+    else window.SFX.gameLose?.();
   }
 
   // Update saved balance (only for real multiplayer)
@@ -1349,6 +1479,7 @@ async function redeemRewardCode() {
     if (!res.ok) throw new Error(data.error || 'Unable to redeem reward');
     auth.tokens = data.tokens;
     updateAccountBadge();
+    if (window.SFX) window.SFX.reward();
     if (feedback) {
       feedback.textContent = '+' + data.tokensAdded.toLocaleString() + ' tokens added!';
       feedback.style.color = '#06d6a0';

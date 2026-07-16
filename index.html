@@ -159,12 +159,22 @@
       <button class="menu-close-btn" id="menuCloseBtn" type="button" aria-label="Close menu">Close</button>
     </div>
     <div class="game-menu-room" id="menuRoomInfo">Lobby</div>
+    <button class="game-menu-item" id="menuResumeBtn" type="button">Resume Game</button>
     <button class="game-menu-item" id="menuShareBtn" type="button">Share Invite</button>
-    <button class="game-menu-item" id="menuLeaveBtn" type="button">Leave Game / Lobby</button>
-    <button class="game-menu-item" id="menuBuyTokensBtn" type="button">Buy Tokens</button>
-    <button class="game-menu-item" id="menuRedeemBtn" type="button">Redeem Reward Code</button>
-    <button class="game-menu-item" id="menuSoundBtn" type="button">Sound On</button>
-    <a class="game-menu-item game-menu-link" id="menuAdminLink" href="/admin.html" hidden>Admin Dashboard</a>
+    <button class="game-menu-item" id="menuReturnLobbyBtn" type="button">Return to Lobby</button>
+    <button class="game-menu-item" id="menuLeaveBtn" type="button">Leave Game</button>
+    <button class="game-menu-item" id="menuBuyTokensBtn" type="button">Purchase Tokens</button>
+    <button class="game-menu-item" id="menuRedeemBtn" type="button">Redeem Rewards</button>
+    <div class="game-menu-audio" aria-label="Audio settings">
+      <div class="game-menu-audio-head">Audio Settings</div>
+      <button class="game-menu-item" id="menuSoundBtn" type="button">Sound On</button>
+      <label class="game-menu-volume" for="menuVolumeRange">
+        <span>Volume</span>
+        <input id="menuVolumeRange" type="range" min="0" max="100" step="1" value="70">
+        <strong id="menuVolumeValue">70%</strong>
+      </label>
+    </div>
+    <button class="game-menu-item danger" id="menuExitBtn" type="button">Exit / Log Out</button>
     <div class="game-menu-note" id="menuRewardNote">Admins create reward codes in the Rewards tab of the admin dashboard. Players redeem codes here.</div>
     <div class="game-menu-feedback" id="menuFeedback" role="status"></div>
   </nav>
@@ -233,7 +243,7 @@
           </div>
           <div class="lobby-row" style="margin-top:8px;">
             <label>Server</label>
-            <input type="text" id="lobbyServer" placeholder="ws://yourserver.com">
+            <input type="text" id="lobbyServer" placeholder="wss://yourdomain.com">
           </div>
           <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
             <button class="pill-btn pill-btn-roll" id="lobbyCreateBtn" style="flex:1;">🏠 CREATE ROOM</button>
