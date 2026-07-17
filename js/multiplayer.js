@@ -131,7 +131,10 @@ function authShowLobby() {
 function updateAccountBadge() {
   const badge = document.getElementById('accountBadge');
   const text  = document.getElementById('accountBadgeText');
-  if (!badge) return;
+  if (!badge) {
+    updateMenuState();
+    return;
+  }
   if (auth.username) {
     if (text) text.textContent = '👤 ' + auth.username + ' — 💰 ' + (auth.tokens !== null ? auth.tokens : '—') + ' tokens';
     badge.style.display = 'flex';
