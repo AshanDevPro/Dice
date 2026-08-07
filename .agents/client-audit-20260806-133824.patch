@@ -1,0 +1,2136 @@
+﻿diff --git a/css/style.css b/css/style.css
+index 0e04741..e20650d 100644
+--- a/css/style.css
++++ b/css/style.css
+@@ -541,10 +541,21 @@ body::before {
+   box-shadow: 0 4px 18px rgba(230,62,109,0.45);
+ }
+ .pill-btn-new {
+-  background: #2a2040;
+-  color: var(--text-dim);
+-  border: 1px solid var(--border);
+-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
++  background: linear-gradient(135deg, #f12683, #c0225a 58%, #8d123f);
++  color: #fff4cf;
++  border: 1px solid rgba(255, 209, 102, 0.58);
++  box-shadow: 0 4px 0 #6f0f32, 0 0 16px rgba(230, 62, 109, 0.22);
++}
++
++#lobbyBackBtn.pill-btn-new {
++  color: #fff4cf !important;
++}
++
++#shareRoomBtn.pill-btn-lock {
++  background: linear-gradient(135deg, #f12683, #c0225a 58%, #8d123f);
++  color: #fff4cf !important;
++  border: 1px solid rgba(255, 209, 102, 0.58);
++  box-shadow: 0 4px 0 #6f0f32, 0 0 16px rgba(230, 62, 109, 0.22);
+ }
+ 
+ /* ═══ MSG BOX ═══ */
+@@ -847,12 +858,7 @@ body::before {
+     radial-gradient(circle at 63% 28%, #ff8299 0 8%, transparent 9%),
+     radial-gradient(circle at 50% 48%, #ffb0bd 0 25%, transparent 26%),
+     linear-gradient(145deg, #131313 0 50%, #262626 51% 100%);
+-  --coin-stack-art:
+-    radial-gradient(ellipse at 78% 88%, #a85d00 0 26%, transparent 27%),
+-    radial-gradient(ellipse at 64% 76%, #ffcf4d 0 22%, transparent 23%),
+-    radial-gradient(ellipse at 46% 90%, #f5a623 0 28%, transparent 29%),
+-    radial-gradient(ellipse at 30% 75%, #ffd86d 0 24%, transparent 25%),
+-    linear-gradient(180deg, transparent 0 45%, rgba(92, 37, 0, 0.45) 46% 100%);
++  --coin-stack-art: url("../assets/coin_pack.png");
+ }
+ 
+ body {
+@@ -903,41 +909,31 @@ body::before {
+ 
+ .header {
+   width: min(100%, 660px);
+-  min-height: 220px;
+-  margin: 0 auto -8px;
+-  padding: 24px 56px 0 0;
++  min-height: 270px;
++  margin: 0 auto 4px;
++  padding: 38px 56px 10px;
+   position: relative;
+   display: flex;
+   align-items: flex-start;
+-  justify-content: space-between;
+-  text-align: left;
++  justify-content: center;
++  text-align: center;
+ }
+ 
+ .brand-lockup {
+   position: relative;
+   z-index: 3;
+-  flex: 1 1 auto;
+-  max-width: 410px;
+-  padding-top: 48px;
++  flex: 0 0 auto;
++  width: min(54vw, 240px);
++  max-width: 240px;
++  padding-top: 0;
+ }
+ 
+ .brand-lockup::before {
+-  content: '';
+-  display: block;
+-  width: 100%;
+-  height: 86px;
+-  position: absolute;
+-  left: -5px;
+-  top: 32px;
+-  background-image: var(--brand-logo-art);
+-  background-repeat: no-repeat;
+-  background-size: contain;
+-  background-position: left center;
+-  pointer-events: none;
++  content: none;
+ }
+ 
+ .game-title {
+-  width: min(100%, 430px);
++  width: 100%;
+   line-height: 0;
+ }
+ 
+@@ -948,6 +944,11 @@ body::before {
+   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.72));
+ }
+ 
++.logo-with-title {
++  aspect-ratio: 1;
++  object-fit: contain;
++}
++
+ .subtitle {
+   max-width: 330px;
+   margin-top: 18px;
+@@ -1079,7 +1080,45 @@ body .header .sound-toggle::after {
+ 
+ #gameScreen {
+   position: relative;
+-  padding-top: 2px;
++  padding: 18px;
++  border: 2px solid rgba(255, 216, 115, 0.78);
++  border-radius: 22px;
++  background:
++    radial-gradient(circle at 50% 52%, rgba(155, 0, 67, 0.54), transparent 18rem),
++    linear-gradient(180deg, #040506 0 24%, #19010c 25% 100%),
++    linear-gradient(155deg, #640026, #12050d 72%);
++  box-shadow:
++    inset 0 0 0 2px rgba(109, 0, 40, 0.66),
++    0 18px 34px rgba(0, 0, 0, 0.5),
++    0 0 28px rgba(255, 216, 115, 0.16);
++}
++
++.game-play-hero {
++  position: relative;
++  display: grid;
++  grid-template-columns: minmax(0, 1fr);
++  align-items: center;
++  min-height: clamp(112px, 20vw, 160px);
++  margin: -6px 42px -14px 0;
++  overflow: visible;
++}
++
++.game-play-logo {
++  display: flex;
++  justify-content: center;
++  align-items: center;
++  min-height: 0;
++  margin: 0;
++  pointer-events: none;
++}
++
++.game-play-logo img {
++  display: block;
++  width: clamp(170px, 34vw, 260px);
++  height: auto;
++  aspect-ratio: 1;
++  object-fit: contain;
++  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.72));
+ }
+ 
+ .players-strip {
+@@ -1181,16 +1220,17 @@ body .header .sound-toggle::after {
+ }
+ 
+ .coin-stack-art {
+-  width: 116px;
+-  height: 86px;
+-  margin-left: -16px;
++  width: 132px;
++  height: 112px;
++  margin-left: 0;
+   align-self: end;
+   justify-self: end;
+   background-image: var(--coin-stack-art);
+   background-repeat: no-repeat;
+   background-size: contain;
+-  background-position: center bottom;
+-  filter: drop-shadow(0 12px 10px rgba(0, 0, 0, 0.55));
++  background-position: center;
++  mix-blend-mode: screen;
++  filter: saturate(1.18) contrast(1.05) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.55));
+ }
+ 
+ .practice-badge-wrap {
+@@ -1235,9 +1275,9 @@ body .header .sound-toggle::after {
+   border: 3px solid var(--gold-bright);
+   border-radius: 22px;
+   background:
+-    radial-gradient(circle at 50% 0%, rgba(255, 75, 158, 0.28), transparent 22rem),
+-    radial-gradient(circle at 85% 102%, rgba(0, 0, 0, 0.54), transparent 16rem),
+-    linear-gradient(155deg, #7d0030 0%, #570020 47%, #15191d 100%);
++    radial-gradient(circle at 56% 48%, rgba(179, 0, 77, 0.58), transparent 18rem),
++    radial-gradient(circle at 88% 96%, rgba(255, 216, 115, 0.14), transparent 9rem),
++    linear-gradient(155deg, #8a0039 0%, #5a0023 48%, #131316 100%);
+   box-shadow:
+     inset 0 0 0 3px rgba(89, 0, 31, 0.85),
+     inset 0 0 0 7px rgba(255, 216, 115, 0.18),
+@@ -1507,6 +1547,19 @@ body #lobbyScreen label,
+   color: var(--gold-bright) !important;
+ }
+ 
++.token-pack-art {
++  width: min(210px, 70%);
++  height: 110px;
++  margin: -6px auto 4px;
++  background-image: var(--coin-stack-art);
++  background-repeat: no-repeat;
++  background-size: contain;
++  background-position: center;
++  mix-blend-mode: screen;
++  filter: saturate(1.18) contrast(1.05) drop-shadow(0 12px 14px rgba(0, 0, 0, 0.48));
++  pointer-events: none;
++}
++
+ body #authScreen input,
+ body #lobbyScreen input,
+ #rewardRedeemModal input {
+@@ -1543,6 +1596,26 @@ body #authScreen {
+     0 0 26px rgba(255, 216, 115, 0.16);
+ }
+ 
++body #lobbyScreen {
++  min-height: clamp(380px, 58vw, 560px);
++  padding: clamp(58px, 8vw, 78px) clamp(30px, 7vw, 58px) clamp(48px, 7vw, 68px);
++  border: 0;
++  border-radius: 26px;
++  background:
++    url("../assets/frame.png") center / 100% 100% no-repeat,
++    linear-gradient(150deg, #610027, #1a0712 70%);
++  box-shadow:
++    0 18px 32px rgba(0, 0, 0, 0.5),
++    0 0 24px rgba(255, 216, 115, 0.16);
++}
++
++body #lobbyConnect,
++body #lobbyWaiting,
++body #lobbyError {
++  position: relative;
++  z-index: 1;
++}
++
+ body #authScreen .auth-tabs,
+ body #authScreen #loginForm,
+ body #authScreen #registerForm,
+@@ -1583,13 +1656,14 @@ body #authScreen .auth-logo {
+   }
+ 
+   .header {
+-    min-height: 202px;
+-    padding-right: 44px;
++    min-height: 240px;
++    padding: 34px 44px 8px;
+   }
+ 
+   .brand-lockup {
+-    max-width: 330px;
+-    padding-top: 54px;
++    width: min(58vw, 216px);
++    max-width: 216px;
++    padding-top: 0;
+   }
+ 
+   .game-title {
+@@ -1677,8 +1751,8 @@ body #authScreen .auth-logo {
+ 
+ @media (max-width: 470px) {
+   .header {
+-    min-height: 188px;
+-    padding-right: 34px;
++    min-height: 216px;
++    padding: 30px 34px 8px;
+   }
+ 
+   body #authScreen {
+@@ -1688,7 +1762,8 @@ body #authScreen .auth-logo {
+   }
+ 
+   .brand-lockup {
+-    max-width: 272px;
++    width: min(64vw, 192px);
++    max-width: 192px;
+   }
+ 
+   .game-title {
+@@ -1805,18 +1880,18 @@ body .header .menu-button {
+   right: max(12px, env(safe-area-inset-right));
+   top: max(12px, env(safe-area-inset-top));
+   z-index: 90;
+-  width: min(320px, calc(100vw - 24px));
++  width: min(350px, calc(100vw - 24px));
+   max-height: calc(100dvh - 24px);
+   overflow-y: auto;
+-  padding: 14px;
+-  border: 2px solid rgba(255, 216, 115, 0.82);
+-  border-radius: 10px;
++  padding: 54px 28px 34px;
++  border: 0;
++  border-radius: 24px;
+   background:
+-    linear-gradient(180deg, rgba(255, 216, 115, 0.08), transparent 32%),
++    url("../assets/frame.png") center / 100% 100% no-repeat,
+     linear-gradient(150deg, #610027, #17050d 72%);
+   box-shadow:
+-    inset 0 0 0 2px rgba(109, 0, 40, 0.7),
+-    0 20px 34px rgba(0, 0, 0, 0.58);
++    0 20px 34px rgba(0, 0, 0, 0.58),
++    0 0 22px rgba(255, 216, 115, 0.14);
+ }
+ 
+ .game-menu[hidden],
+@@ -1836,6 +1911,19 @@ body .header .menu-button {
+   letter-spacing: 0.05em;
+ }
+ 
++.game-menu-coins {
++  width: min(190px, 68%);
++  height: 92px;
++  margin: -18px auto 4px;
++  background-image: var(--coin-stack-art);
++  background-repeat: no-repeat;
++  background-size: contain;
++  background-position: center;
++  mix-blend-mode: screen;
++  filter: saturate(1.18) contrast(1.05) drop-shadow(0 10px 14px rgba(0, 0, 0, 0.5));
++  pointer-events: none;
++}
++
+ .menu-close-btn {
+   padding: 5px 9px;
+   border: 1px solid rgba(255, 216, 115, 0.62);
+@@ -1866,6 +1954,7 @@ body .header .menu-button {
+   min-height: 40px;
+   align-items: center;
+   justify-content: center;
++  gap: 8px;
+   margin-top: 8px;
+   padding: 8px 12px;
+   border: 1px solid rgba(255, 216, 115, 0.62);
+@@ -1882,6 +1971,18 @@ body .header .menu-button {
+   cursor: pointer;
+ }
+ 
++.menu-coin-icon {
++  width: 26px;
++  height: 26px;
++  flex: 0 0 26px;
++  background-image: var(--coin-stack-art);
++  background-repeat: no-repeat;
++  background-size: contain;
++  background-position: center;
++  mix-blend-mode: screen;
++  filter: saturate(1.2) drop-shadow(0 3px 4px rgba(0, 0, 0, 0.46));
++}
++
+ .game-menu-item.danger {
+   border-color: rgba(255, 77, 109, 0.76);
+   color: #ff9aaa;
+@@ -2021,15 +2122,17 @@ body .header .menu-button {
+ body.game-active {
+   height: 100dvh;
+   overflow: hidden;
++  --active-die-size: clamp(38px, 7dvh, 52px);
++  --roll-die-size: clamp(34px, 6dvh, 46px);
+ }
+ 
+ body.game-active #app {
+   display: flex;
+   flex-direction: column;
+   width: 100%;
+-  max-width: 980px;
++  max-width: 464px;
+   height: 100dvh;
+-  padding: max(4px, env(safe-area-inset-top)) 8px max(6px, env(safe-area-inset-bottom));
++  padding: max(6px, env(safe-area-inset-top)) 10px max(6px, env(safe-area-inset-bottom));
+   overflow: hidden;
+ }
+ 
+@@ -2050,7 +2153,7 @@ body.game-active .ad-slot {
+ body.game-active .header .menu-button {
+   position: fixed;
+   top: max(8px, env(safe-area-inset-top));
+-  right: max(8px, env(safe-area-inset-right));
++  right: calc((100vw - min(100vw, 464px)) / 2 + max(12px, env(safe-area-inset-right)));
+   transform: none;
+   width: 42px;
+   height: 40px;
+@@ -2064,22 +2167,50 @@ body.game-active .game-layout {
+ }
+ 
+ body.game-active .game-main {
+-  width: min(100%, 900px);
++  width: 100%;
+   height: 100%;
+   margin: 0 auto;
+ }
+ 
+ body.game-active #gameScreen {
+   display: grid !important;
++  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+   grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+   gap: 6px;
+   height: 100%;
+   min-height: 0;
+-  padding-top: 0;
++  padding: 10px;
+   overflow: hidden;
++  border: 2px solid rgba(255, 216, 115, 0.9);
++  border-radius: 18px;
++  background:
++    radial-gradient(circle at 54% 54%, rgba(135, 0, 59, 0.54), transparent 15rem),
++    linear-gradient(180deg, #030405 0 24%, #170009 25% 100%);
++  box-shadow:
++    inset 0 0 0 2px rgba(121, 0, 47, 0.74),
++    inset 0 0 0 5px rgba(255, 216, 115, 0.14),
++    0 0 0 1px rgba(0, 0, 0, 0.9),
++    0 0 26px rgba(255, 216, 115, 0.14);
++}
++
++body.game-active .game-play-hero {
++  grid-column: 1 / -1;
++  grid-template-columns: minmax(0, 1fr);
++  min-height: clamp(74px, 15dvh, 110px);
++  margin: -6px 46px -4px 0;
++}
++
++body.game-active .game-play-logo {
++  min-height: 0;
++  margin: 0;
++}
++
++body.game-active .game-play-logo img {
++  width: clamp(128px, 25vw, 220px);
+ }
+ 
+ body.game-active .players-strip {
++  grid-column: 1 / -1;
+   min-height: 0;
+   margin: 0 46px 0 0;
+   padding: 0 0 4px;
+@@ -2107,18 +2238,38 @@ body.game-active .turn-arrow {
+ }
+ 
+ body.game-active .pot-info-bar {
+-  grid-template-columns: 68px minmax(0, 1fr) 58px;
+-  min-height: 48px;
++  grid-column: 2 / 3;
++  grid-row: 3;
++  grid-template-columns: minmax(0, 1fr) 84px;
++  min-height: 96px;
+   margin: 0;
+-  padding: 6px 8px;
++  padding: 8px;
+   gap: 6px;
+-  border-width: 1px;
+-  border-radius: 7px;
++  border: 1px solid rgba(255, 216, 115, 0.78);
++  border-radius: 10px;
+   overflow: hidden;
++  background:
++    linear-gradient(180deg, rgba(255, 216, 115, 0.12), transparent 34%),
++    rgba(20, 8, 12, 0.84);
++  box-shadow:
++    inset 0 0 0 1px rgba(109, 0, 40, 0.58),
++    0 8px 14px rgba(0, 0, 0, 0.28);
++}
++
++body.game-active .pot-info-item {
++  display: none;
++}
++
++body.game-active .pot-info-center {
++  justify-content: center;
++  flex-wrap: wrap;
++  gap: 4px 7px;
+ }
+ 
+ body.game-active .pot-info-label {
+   font-size: 0.58rem;
++  flex-basis: 100%;
++  text-align: center;
+ }
+ 
+ body.game-active .pot-info-value {
+@@ -2126,13 +2277,14 @@ body.game-active .pot-info-value {
+ }
+ 
+ body.game-active .pot-highlight {
+-  font-size: 1.35rem;
++  font-size: 1.45rem;
+ }
+ 
+ body.game-active .coin-stack-art {
+-  width: 58px;
+-  height: 42px;
++  width: 84px;
++  height: 74px;
+   margin-left: 0;
++  align-self: end;
+ }
+ 
+ body.game-active .practice-badge-wrap {
+@@ -2140,12 +2292,14 @@ body.game-active .practice-badge-wrap {
+ }
+ 
+ body.game-active .opponents-grid {
++  grid-column: 1 / 2;
++  grid-row: 3;
+   display: flex;
+   gap: 6px;
+   min-height: 0;
+   margin: 0;
+   padding: 0 0 2px;
+-  overflow-x: auto;
++  overflow: hidden;
+   scrollbar-width: none;
+ }
+ 
+@@ -2154,12 +2308,15 @@ body.game-active .opponents-grid::-webkit-scrollbar {
+ }
+ 
+ body.game-active .opp-card {
+-  flex: 0 0 132px;
+-  min-width: 132px;
+-  padding: 6px 8px;
+-  border-width: 1px;
+-  border-radius: 7px;
+-  box-shadow: none;
++  flex: 1 1 100%;
++  min-width: 0;
++  padding: 10px 8px;
++  border: 1px solid rgba(255, 216, 115, 0.74);
++  border-radius: 10px;
++  background:
++    linear-gradient(180deg, rgba(255, 216, 115, 0.1), transparent 36%),
++    rgba(105, 0, 39, 0.82);
++  box-shadow: inset 0 0 0 1px rgba(109, 0, 40, 0.56);
+ }
+ 
+ body.game-active .opp-card-header {
+@@ -2173,7 +2330,7 @@ body.game-active .opp-dot {
+ }
+ 
+ body.game-active .opp-name {
+-  max-width: 96px;
++  max-width: 100%;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+@@ -2195,8 +2352,17 @@ body.game-active .opp-status {
+ }
+ 
+ body.game-active .active-board {
++  grid-column: 1 / -1;
++  grid-row: 4;
+   display: grid;
+-  grid-template-rows: auto auto repeat(3, minmax(50px, 1fr)) auto auto;
++  grid-template-rows:
++    auto
++    auto
++    minmax(68px, 0.72fr)
++    minmax(68px, 0.72fr)
++    minmax(112px, 1fr)
++    auto
++    auto;
+   gap: 6px;
+   min-height: 0;
+   height: 100%;
+@@ -2205,14 +2371,33 @@ body.game-active .active-board {
+   overflow: hidden;
+   border-width: 2px;
+   border-radius: 13px;
++  border-color: rgba(255, 216, 115, 0.86);
++  background:
++    radial-gradient(circle at 54% 45%, rgba(170, 0, 76, 0.48), transparent 14rem),
++    linear-gradient(155deg, #7b0032 0%, #570020 56%, #101113 100%);
+   box-shadow:
+     inset 0 0 0 2px rgba(89, 0, 31, 0.72),
++    inset 0 0 0 4px rgba(255, 216, 115, 0.1),
+     0 8px 18px rgba(0, 0, 0, 0.48);
+ }
+ 
+ body.game-active .active-board::before,
+ body.game-active .active-board::after {
+-  display: none;
++  display: block;
++}
++
++body.game-active .active-board::before {
++  inset: 6px;
++  border: 1px solid rgba(255, 216, 115, 0.64);
++  border-radius: 10px;
++  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.28);
++}
++
++body.game-active .active-board::after {
++  right: 8px;
++  bottom: 7px;
++  width: 36px;
++  height: 36px;
+ }
+ 
+ body.game-active .board-header {
+@@ -2277,21 +2462,51 @@ body.game-active .zone-hint-dim {
+ 
+ body.game-active .dice-row {
+   flex: 1 1 auto;
+-  min-height: 0;
++  min-height: calc(var(--active-die-size) + 12px);
+   gap: 6px;
+   align-content: center;
+   overflow: hidden;
+ }
+ 
+ body.game-active .die {
+-  width: clamp(38px, 7dvh, 52px);
+-  height: clamp(38px, 7dvh, 52px);
++  width: var(--active-die-size);
++  height: var(--active-die-size);
+   border-radius: 9px;
++  background-size: contain;
++}
++
++body.game-active .roll-zone {
++  min-height: 112px;
++}
++
++body.game-active .roll-zone .zone-label {
++  font-size: 0.72rem;
++  line-height: 1.05;
++}
++
++body.game-active #rollRow {
++  display: grid;
++  grid-template-columns: repeat(6, minmax(0, 1fr));
++  justify-items: center;
++  align-items: center;
++  min-height: calc(var(--roll-die-size) + 18px);
++  gap: 5px;
++  padding: 8px 0 4px;
++}
++
++body.game-active #rollRow .die {
++  width: var(--roll-die-size);
++  height: var(--roll-die-size);
++}
++
++body.game-active #rollRow .zone-hint {
++  grid-column: 1 / -1;
+ }
+ 
+ body.game-active #lockHintLine {
+   margin-top: 3px !important;
+   font-size: 0.66rem !important;
++  line-height: 1.05 !important;
+ }
+ 
+ body.game-active #midRollBetting {
+@@ -2323,15 +2538,16 @@ body.game-active .step-btn {
+ }
+ 
+ body.game-active .active-board .action-btn-row {
+-  grid-template-columns: repeat(3, minmax(0, 1fr));
++  grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: 6px;
+   max-width: none;
+   margin: 0;
+ }
+ 
+ body.game-active .active-board #endTurnBtn {
+-  grid-column: auto;
+-  width: 100%;
++  grid-column: 1 / -1;
++  justify-self: center;
++  width: min(100%, 260px);
+ }
+ 
+ body.game-active .active-board .pill-btn {
+@@ -2355,6 +2571,8 @@ body.game-active .msg-box {
+ }
+ 
+ body.game-active #bettingPanel {
++  grid-column: 1 / -1;
++  grid-row: 4;
+   max-height: 100%;
+   margin: 0;
+   padding: 10px;
+@@ -2362,28 +2580,43 @@ body.game-active #bettingPanel {
+ }
+ 
+ body.game-active #resultsBar {
++  grid-column: 1 / -1;
+   margin: 0;
+   padding: 8px;
+ }
+ 
+ @media (max-height: 700px) {
++  body.game-active .game-play-hero {
++    min-height: 54px;
++    grid-template-columns: minmax(0, 1fr);
++    margin-bottom: -6px;
++  }
++
++  body.game-active .game-play-logo {
++    min-height: 0;
++  }
++
++  body.game-active .game-play-logo img {
++    width: 132px;
++  }
++
+   body.game-active #gameScreen {
+     gap: 4px;
+   }
+ 
+   body.game-active .pot-info-bar {
+-    min-height: 40px;
++    min-height: 68px;
+     padding-block: 4px;
+   }
+ 
+   body.game-active .coin-stack-art {
+-    width: 48px;
+-    height: 34px;
++    width: 62px;
++    height: 54px;
+   }
+ 
+   body.game-active .opp-card {
+-    flex-basis: 116px;
+-    min-width: 116px;
++    flex: 1 1 100%;
++    min-width: 0;
+     padding: 4px 6px;
+   }
+ 
+@@ -2392,7 +2625,14 @@ body.game-active #resultsBar {
+   }
+ 
+   body.game-active .active-board {
+-    grid-template-rows: auto auto repeat(3, minmax(44px, 1fr)) auto auto;
++    grid-template-rows:
++      auto
++      auto
++      minmax(54px, 0.68fr)
++      minmax(54px, 0.68fr)
++      minmax(94px, 1fr)
++      auto
++      auto;
+     gap: 4px;
+     padding: 6px;
+   }
+@@ -2407,8 +2647,21 @@ body.game-active #resultsBar {
+   }
+ 
+   body.game-active .die {
+-    width: clamp(32px, 6.5dvh, 44px);
+-    height: clamp(32px, 6.5dvh, 44px);
++    --active-die-size: clamp(32px, 6.5dvh, 42px);
++  }
++
++  body.game-active .dice-row {
++    min-height: calc(var(--active-die-size) + 10px);
++  }
++
++  body.game-active .roll-zone {
++    min-height: 94px;
++  }
++
++  body.game-active #rollRow {
++    --roll-die-size: clamp(30px, 5.4dvh, 38px);
++    min-height: calc(var(--roll-die-size) + 14px);
++    padding-block: 6px 3px;
+   }
+ 
+   body.game-active .active-board .pill-btn {
+@@ -2436,10 +2689,298 @@ body.game-active #resultsBar {
+   }
+ 
+   body.game-active .pot-info-bar {
+-    grid-template-columns: 58px minmax(0, 1fr) 48px;
++    grid-template-columns: minmax(0, 1fr) 48px;
++  }
++
++  body.game-active .active-board .pill-btn {
++    font-size: 0.72rem;
++  }
++}
++
++@media (min-width: 760px) {
++  body.game-active {
++    --active-die-size: clamp(46px, 6vh, 56px);
++    --roll-die-size: clamp(42px, 5.7vh, 50px);
++  }
++
++  body.game-active #app {
++    max-width: 1180px;
++    padding: max(10px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
++  }
++
++  body.game-active .header .menu-button {
++    right: calc((100vw - min(100vw, 1180px)) / 2 + max(20px, env(safe-area-inset-right)));
++    top: max(14px, env(safe-area-inset-top));
++    width: 48px;
++    height: 46px;
++  }
++
++  body.game-active #gameScreen {
++    grid-template-columns: minmax(190px, 240px) minmax(420px, 1fr) minmax(190px, 250px);
++    grid-template-rows: auto auto minmax(0, 1fr) auto;
++    gap: 12px;
++    padding: 16px;
++    border-radius: 22px;
++  }
++
++  body.game-active .game-play-hero {
++    grid-column: 1 / -1;
++    grid-row: 1;
++    min-height: 108px;
++    margin: -8px 56px -8px 0;
++  }
++
++  body.game-active .game-play-logo img {
++    width: clamp(170px, 17vw, 240px);
++  }
++
++  body.game-active .players-strip {
++    grid-column: 1;
++    grid-row: 2;
++    display: grid;
++    gap: 10px;
++    margin: 0;
++    padding: 0;
++    overflow: visible;
++  }
++
++  body.game-active .player-tab {
++    min-width: 0;
++    padding: 10px 12px;
++    border-radius: 10px;
++    box-shadow:
++      inset 0 0 0 2px rgba(94, 0, 36, 0.72),
++      0 8px 16px rgba(0, 0, 0, 0.3);
++  }
++
++  body.game-active .tab-name {
++    font-size: 0.95rem;
++  }
++
++  body.game-active .tab-tokens,
++  body.game-active .tab-score {
++    font-size: 0.78rem;
++  }
++
++  body.game-active .opponents-grid {
++    grid-column: 1;
++    grid-row: 3;
++    display: grid;
++    align-content: start;
++    gap: 12px;
++    overflow-y: auto;
++    padding: 0 2px 2px 0;
++  }
++
++  body.game-active .opp-card {
++    padding: 14px 12px;
++    border-radius: 12px;
++  }
++
++  body.game-active .opp-name {
++    font-size: 1rem;
++  }
++
++  body.game-active .opp-status {
++    font-size: 0.82rem;
++  }
++
++  body.game-active .opp-qual-slots {
++    display: flex;
++  }
++
++  body.game-active .small-die {
++    width: 30px;
++    height: 30px;
++  }
++
++  body.game-active .pot-info-bar {
++    grid-column: 3;
++    grid-row: 2;
++    grid-template-columns: minmax(0, 1fr);
++    min-height: 132px;
++    padding: 16px 14px;
++    align-content: center;
++  }
++
++  body.game-active .pot-info-center {
++    display: flex;
++    flex-direction: column;
++    gap: 7px;
++  }
++
++  body.game-active .pot-info-label {
++    font-size: 0.72rem;
++  }
++
++  body.game-active .pot-info-value {
++    font-size: 1.1rem;
++  }
++
++  body.game-active .pot-highlight {
++    font-size: 2.2rem;
++  }
++
++  body.game-active .coin-stack-art {
++    justify-self: center;
++    width: 112px;
++    height: 86px;
++  }
++
++  body.game-active #resultsBar {
++    grid-column: 3;
++    grid-row: 3;
++    align-self: start;
++  }
++
++  body.game-active .active-board {
++    grid-column: 2;
++    grid-row: 2 / 4;
++    grid-template-rows:
++      auto
++      auto
++      minmax(100px, 0.8fr)
++      minmax(100px, 0.8fr)
++      minmax(132px, 1fr)
++      auto
++      auto;
++    padding: 18px;
++    gap: 10px;
++    border-radius: 18px;
++  }
++
++  body.game-active .board-header {
++    padding-bottom: 8px;
++  }
++
++  body.game-active .board-player-name {
++    font-size: 1.45rem;
++  }
++
++  body.game-active .board-tokens-tag,
++  body.game-active .board-ante-tag {
++    font-size: 0.86rem;
++  }
++
++  body.game-active .roll-status-bar .pill {
++    padding: 3px 9px;
++    font-size: 0.78rem;
++  }
++
++  body.game-active .hand-zone {
++    padding: 12px 14px;
++    border-radius: 12px;
++  }
++
++  body.game-active .zone-label {
++    font-size: 1rem;
++    margin-bottom: 7px;
++  }
++
++  body.game-active .zone-hint,
++  body.game-active .zone-hint-dim {
++    font-size: 0.86rem;
++  }
++
++  body.game-active .dice-row {
++    gap: 10px;
++    min-height: calc(var(--active-die-size) + 14px);
++  }
++
++  body.game-active .die {
++    width: var(--active-die-size);
++    height: var(--active-die-size);
++  }
++
++  body.game-active .roll-zone {
++    min-height: 132px;
++  }
++
++  body.game-active .roll-zone .zone-label {
++    font-size: 0.88rem;
++  }
++
++  body.game-active #rollRow {
++    min-height: calc(var(--roll-die-size) + 20px);
++    gap: 6px;
++    padding-block: 10px 5px;
++  }
++
++  body.game-active #rollRow .die {
++    width: var(--roll-die-size);
++    height: var(--roll-die-size);
++  }
++
++  body.game-active .active-board .action-btn-row {
++    grid-template-columns: repeat(3, minmax(0, 1fr));
++    max-width: 540px;
++    margin-inline: auto;
++    gap: 10px;
++  }
++
++  body.game-active .active-board .pill-btn {
++    min-height: 48px;
++    padding: 10px 12px;
++    font-size: 1rem;
++    border-width: 2px;
++    white-space: nowrap;
++  }
++
++  body.game-active .active-board #endTurnBtn {
++    grid-column: auto;
++    width: min(100%, 320px);
++  }
++
++  body.game-active .msg-box {
++    min-height: 28px;
++    font-size: 0.82rem;
++  }
++
++  body.game-active #bettingPanel {
++    grid-column: 2;
++    grid-row: 2 / 4;
++  }
++}
++
++@media (min-width: 760px) and (max-height: 760px) {
++  body.game-active {
++    --active-die-size: clamp(40px, 5.6vh, 48px);
++    --roll-die-size: clamp(36px, 5.2vh, 42px);
++  }
++
++  body.game-active .die {
++    --active-die-size: clamp(40px, 5.6vh, 48px);
++  }
++
++  body.game-active .active-board {
++    grid-template-rows:
++      auto
++      auto
++      minmax(82px, 0.72fr)
++      minmax(82px, 0.72fr)
++      minmax(112px, 1fr)
++      auto
++      auto;
++    gap: 7px;
++    padding: 12px;
++  }
++
++  body.game-active .hand-zone {
++    padding: 8px 10px;
++  }
++
++  body.game-active .roll-zone {
++    min-height: 112px;
+   }
+ 
+   body.game-active .active-board .pill-btn {
++    min-height: 40px;
++    padding-block: 8px;
++    font-size: 0.86rem;
++  }
++
++  body.game-active .msg-box {
++    min-height: 22px;
+     font-size: 0.72rem;
+   }
+ }
+diff --git a/index.html b/index.html
+index 1c9b695..b9a8b90 100644
+--- a/index.html
++++ b/index.html
+@@ -45,9 +45,66 @@
+     .pill-btn-roll:active { box-shadow: 0 1px 0 #7a1535; }
+     .pill-btn-end  { background: linear-gradient(135deg,#e63e6d,#c0225a); color:white; box-shadow:0 4px 0 #7a1535; }
+     .pill-btn-end:active  { box-shadow: 0 1px 0 #7a1535; }
++    .pill-btn-gold {
++      background: linear-gradient(135deg,#3a2a10,#18110a);
++      color: #ffd166;
++      border: 1px solid rgba(255,209,102,0.72);
++      box-shadow: 0 4px 0 #5c3a00, 0 0 18px rgba(255,209,102,0.16);
++    }
++    .pill-btn-gold:active { box-shadow: 0 1px 0 #5c3a00; }
++    .pill-btn-practice {
++      background: linear-gradient(135deg,#ffd166,#f5a623 58%,#b87000);
++      color: #201207;
++      border: 1px solid rgba(255,237,177,0.86);
++      box-shadow: 0 4px 0 #765000, 0 0 20px rgba(255,209,102,0.24);
++    }
++    .pill-btn-practice .theme-icon {
++      background: linear-gradient(180deg,rgba(32,18,7,0.88),rgba(77,48,0,0.82));
++      color: #ffd166;
++      border-color: rgba(255,244,204,0.74);
++    }
++    .pill-btn-practice:active { box-shadow: 0 1px 0 #765000; }
++    .btn-mark,
++    .theme-icon {
++      display: inline-flex;
++      align-items: center;
++      justify-content: center;
++      min-width: 1.35em;
++      height: 1.35em;
++      padding: 0 0.22em;
++      border: 1px solid rgba(255,209,102,0.72);
++      border-radius: 999px;
++      background: linear-gradient(180deg, rgba(255,241,190,0.18), rgba(130,78,0,0.28));
++      color: #ffd166;
++      font-family: 'Bebas Neue','Barlow Condensed',sans-serif;
++      font-size: 0.92em;
++      font-weight: 900;
++      line-height: 1;
++      letter-spacing: 0;
++      text-shadow: 0 0 10px rgba(255,209,102,0.45);
++      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 10px rgba(255,209,102,0.14);
++      vertical-align: -0.1em;
++    }
+     .pill-btn-lock { background: #2a1a4a; color: #c8a8f0; border: 1px solid #5a3a9e; box-shadow: 0 4px 0 #12082a; }
+     .pill-btn-lock:active { box-shadow: 0 1px 0 #12082a; }
+-    .pill-btn-new  { background: #2a2040; color: #c0b0d8; border: 1px solid #3a2a5a; box-shadow: 0 4px 0 #0a0814; }
++    .pill-btn-new  {
++      background: linear-gradient(135deg,#f12683,#c0225a 58%,#8d123f);
++      color: #fff4cf;
++      border: 1px solid rgba(255,209,102,0.58);
++      box-shadow: 0 4px 0 #6f0f32, 0 0 16px rgba(230,62,109,0.22);
++    }
++    #shareRoomBtn.pill-btn-lock {
++      background: linear-gradient(135deg,#f12683,#c0225a 58%,#8d123f);
++      color: #fff4cf !important;
++      border: 1px solid rgba(255,209,102,0.58);
++      box-shadow: 0 4px 0 #6f0f32, 0 0 16px rgba(230,62,109,0.22);
++    }
++    #lobbyBackBtn.pill-btn-new { color: #fff4cf !important; }
++    .lobby-action-stack {
++      display: grid;
++      gap: 14px;
++      margin-top: 16px;
++    }
+     #lobbyError { color: #ff6b6b; text-align: center; padding: 8px; font-size: 0.88rem; min-height: 20px; }
+     .lobby-player-entry {
+       display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+@@ -72,6 +129,64 @@
+       box-shadow: 0 0 32px rgba(230,62,109,0.3);
+       text-align: center;
+     }
++
++    .auth-title {
++      font-family: 'Bebas Neue',sans-serif;
++      font-size: clamp(2rem, 7vw, 3rem);
++      line-height: 0.95;
++      letter-spacing: 0.05em;
++      color: #ffd166;
++      text-transform: uppercase;
++      margin-bottom: 14px;
++      text-shadow: 0 3px 0 rgba(0,0,0,0.5), 0 0 16px rgba(255,209,102,0.2);
++    }
++    .auth-title strong { color: #e63e6d; }
++    .game-choice {
++      margin: 0 auto 16px;
++      color: #ffe0a0;
++      font-family: 'Bebas Neue',sans-serif;
++      text-align: center;
++      text-transform: uppercase;
++      letter-spacing: 0.08em;
++    }
++    .game-choice-title { font-size: 1.2rem; margin-bottom: 6px; }
++    .game-choice-options {
++      display: grid;
++      gap: 6px;
++      width: max-content;
++      max-width: 100%;
++      margin: 0 auto;
++      text-align: left;
++    }
++    .game-choice-options label {
++      display: flex;
++      align-items: center;
++      gap: 8px;
++      color: #ffd166 !important;
++      font-size: 1.25rem;
++      cursor: pointer;
++    }
++    .game-choice-options input {
++      width: 10px;
++      height: 10px;
++      accent-color: #ffd166;
++    }
++    .auth-register-copy {
++      color: #ffe6a2 !important;
++      text-align: center;
++      font-size: 1rem !important;
++      margin-top: 14px !important;
++    }
++    .auth-link-btn {
++      border: 0;
++      background: transparent;
++      color: #e63e6d !important;
++      font: inherit;
++      font-weight: 900;
++      letter-spacing: 0.04em;
++      text-transform: uppercase;
++      cursor: pointer;
++    }
+     .auth-logo {
+       width: 96px; height: 96px;
+       object-fit: cover;
+@@ -131,24 +246,69 @@
+       display: inline-block; transition: all 0.15s;
+     }
+     .sound-toggle:hover { border-color: #e63e6d; color: #e63e6d; }
++
++    .theme-message-modal {
++      position: fixed;
++      inset: 0;
++      z-index: 500;
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      padding: 18px;
++      background: rgba(5, 0, 4, 0.72);
++    }
++    .theme-message-modal[hidden] { display: none; }
++    .theme-message-card {
++      width: min(92vw, 390px);
++      padding: 18px;
++      border: 2px solid rgba(255,209,102,0.88);
++      border-radius: 14px;
++      background:
++        linear-gradient(180deg, rgba(255,216,115,0.1), transparent 32%),
++        linear-gradient(150deg, #620027, #17050e 72%);
++      color: #ffe6a2;
++      box-shadow:
++        inset 0 0 0 2px rgba(109,0,40,0.72),
++        0 0 28px rgba(255,209,102,0.22),
++        0 18px 36px rgba(0,0,0,0.58);
++    }
++    .theme-message-head {
++      display: flex;
++      align-items: center;
++      gap: 8px;
++      margin-bottom: 12px;
++      color: #ffd166;
++      font-family: 'Bebas Neue',sans-serif;
++      font-size: 1.35rem;
++      letter-spacing: 0.07em;
++      text-transform: uppercase;
++    }
++    .theme-message-body {
++      color: #fff2c4;
++      font-size: 1rem;
++      line-height: 1.35;
++      margin-bottom: 16px;
++    }
++    .theme-message-actions {
++      display: grid;
++      grid-template-columns: 1fr 1fr;
++      gap: 10px;
++    }
++    .theme-message-actions.single { grid-template-columns: 1fr; }
+   </style>
+ </head>
+ <body>
+ <div id="app">
+ 
+-  <div class="ad-slot ad-slot-top">📢 Advertisement</div>
++  <div class="ad-slot ad-slot-top"><span class="theme-icon">AD</span> Advertisement</div>
+ 
+   <div class="header">
+     <div class="brand-lockup">
+       <div class="game-title">
+-        <img class="title-image" src="assets/Title.png" alt="PigNusDice.com" draggable="false">
++        <img class="title-image logo-with-title" src="assets/logowithtitle.png" alt="PigNusDice.com" draggable="false">
+       </div>
+     </div>
+ 
+-    <div class="mascot-showcase" aria-hidden="true">
+-      <img class="pig-logo" src="assets/pig_logo.png" alt="" draggable="false">
+-    </div>
+-
+     <button class="menu-button" id="menuButton" type="button" title="Menu" aria-label="Open menu" aria-controls="gameMenuPanel" aria-expanded="false"></button>
+   </div>
+ 
+@@ -158,12 +318,13 @@
+       <span>Menu</span>
+       <button class="menu-close-btn" id="menuCloseBtn" type="button" aria-label="Close menu">Close</button>
+     </div>
++    <div class="game-menu-coins" aria-hidden="true"></div>
+     <div class="game-menu-room" id="menuRoomInfo">Lobby</div>
+     <button class="game-menu-item" id="menuResumeBtn" type="button">Resume Game</button>
+     <button class="game-menu-item" id="menuShareBtn" type="button">Share Invite</button>
+     <button class="game-menu-item" id="menuReturnLobbyBtn" type="button">Return to Lobby</button>
+     <button class="game-menu-item" id="menuLeaveBtn" type="button">Leave Game</button>
+-    <button class="game-menu-item" id="menuBuyTokensBtn" type="button">Purchase Tokens</button>
++    <button class="game-menu-item" id="menuBuyTokensBtn" type="button"><span class="menu-coin-icon" aria-hidden="true"></span><span>Purchase Tokens</span></button>
+     <button class="game-menu-item" id="menuRedeemBtn" type="button">Redeem Rewards</button>
+     <div class="game-menu-audio" aria-label="Audio settings">
+       <div class="game-menu-audio-head">Audio Settings</div>
+@@ -180,30 +341,37 @@
+   </nav>
+ 
+   <div class="game-layout">
+-    <div class="ad-slot ad-slot-side">📢 Ad</div>
++    <div class="ad-slot ad-slot-side"><span class="theme-icon">AD</span> Ad</div>
+ 
+     <div class="game-main">
+ 
+       <!-- ══ AUTH SCREEN ══ -->
+       <div id="authScreen">
+-        <div class="auth-tabs">
+-          <button class="auth-tab active" id="loginTabBtn">LOGIN</button>
+-          <button class="auth-tab"        id="registerTabBtn">REGISTER</button>
+-        </div>
+-
+         <div id="loginForm">
++          <div class="auth-title">WELCOME! <strong>LOGIN</strong></div>
++          <div class="game-choice" aria-label="Choose your game">
++            <div class="game-choice-title">Choose Your Game</div>
++            <div class="game-choice-options">
++              <label><input type="radio" name="gameChoice" value="onefourtwentyfour" checked><span class="theme-icon">D6</span><span>1-4-24</span></label>
++              <label><input type="radio" name="gameChoice" value="threesaway"><span class="theme-icon">D6</span><span>3's Away</span></label>
++            </div>
++          </div>
+           <div class="lobby-row" style="text-align:left;">
+-            <label>Email or username</label>
+-            <input type="text" id="loginIdentifier" placeholder="you@example.com or username" autocomplete="username" maxlength="254">
++            <label>Username</label>
++            <input type="text" id="loginIdentifier" placeholder="Enter Your Username" autocomplete="username" maxlength="254">
+           </div>
+           <div class="lobby-row" style="text-align:left;">
+             <label>Password</label>
+-            <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
++            <input type="password" id="loginPassword" placeholder="Enter Your Password" autocomplete="current-password">
+           </div>
+-          <button class="pill-btn pill-btn-roll" id="loginBtn" style="width:100%;margin-top:8px;">▶ SIGN IN</button>
++          <button class="pill-btn pill-btn-roll" id="loginBtn" style="width:100%;margin-top:8px;"><span class="theme-icon">GO</span><span>SIGN IN</span></button>
++          <div class="auth-divider"><span>or</span></div>
++          <button class="pill-btn pill-btn-new" id="guestBtn" type="button" style="width:100%;justify-content:center;"><span class="theme-icon">P</span><span>PLAY AS GUEST</span></button>
++          <p class="auth-register-copy">New player? <button class="auth-link-btn" id="registerTabBtn" type="button">REGISTER HERE</button></p>
+         </div>
+ 
+         <div id="registerForm" style="display:none;">
++          <div class="auth-title">WELCOME! <strong>REGISTER</strong></div>
+           <div class="lobby-row" style="text-align:left;">
+             <label>Username (3–20 letters, numbers, or _)</label>
+             <input type="text" id="regUsername" placeholder="Choose a username" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+">
+@@ -216,7 +384,11 @@
+             <label>Password (at least 8 characters)</label>
+             <input type="password" id="regPassword" placeholder="Choose a secure password" autocomplete="new-password" minlength="8" maxlength="128">
+           </div>
+-          <button class="pill-btn pill-btn-roll" id="registerBtn" style="width:100%;margin-top:8px;">✅ CREATE ACCOUNT</button>
++          <button class="pill-btn pill-btn-gold" id="registerBtn" style="width:100%;margin-top:8px;">
++            <span class="btn-mark" aria-hidden="true">&#10003;</span>
++            <span>CREATE ACCOUNT</span>
++          </button>
++          <p class="auth-register-copy">Already registered? <button class="auth-link-btn" id="loginTabBtn" type="button">SIGN IN</button></p>
+         </div>
+ 
+         <div id="authError"></div>
+@@ -234,32 +406,33 @@
+             <label>Server</label>
+             <input type="text" id="lobbyServer" placeholder="wss://yourdomain.com">
+           </div>
+-          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
+-            <button class="pill-btn pill-btn-roll" id="lobbyCreateBtn" style="flex:1;">🏠 CREATE ROOM</button>
+-            <button class="pill-btn pill-btn-end"  id="lobbyJoinBtn"   style="flex:1;">🚪 JOIN ROOM</button>
+-          </div>
+-          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+-            <button class="pill-btn pill-btn-new" id="vsComputerBtn" style="flex:1;">🤖 PRACTICE vs COMPUTER</button>
++          <div class="lobby-action-stack">
++            <button class="pill-btn pill-btn-gold" id="lobbyCreateBtn"><span class="theme-icon">NEW</span><span>CREATE ROOM</span></button>
++            <button class="pill-btn pill-btn-end" id="lobbyJoinBtn"><span class="theme-icon">IN</span><span>JOIN ROOM</span></button>
++            <button class="pill-btn pill-btn-practice" id="vsComputerBtn"><span class="theme-icon">AI</span><span>PRACTICE vs COMPUTER</span></button>
+           </div>
+           <div id="lobbyJoinRow" style="display:none;margin-top:10px;">
+             <!-- Room browser -->
+             <div id="roomBrowserSection">
+               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                 <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">Available Rooms</span>
+-                <button id="refreshRoomsBtn" onclick="fetchAndShowRooms()" class="pill-btn pill-btn-new" style="padding:4px 12px;font-size:0.8rem;">🔄 Refresh</button>
++                <button id="refreshRoomsBtn" onclick="fetchAndShowRooms()" class="pill-btn pill-btn-gold" style="padding:4px 12px;font-size:0.8rem;"><span class="theme-icon">R</span><span>Refresh</span></button>
+               </div>
+               <div id="roomsList" style="min-height:48px;"></div>
+             </div>
+             <!-- Manual code entry (toggle) -->
+             <div style="margin-top:10px;text-align:center;">
+-              <button id="enterCodeToggleBtn" onclick="toggleManualCode()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.82rem;font-family:inherit;font-weight:700;letter-spacing:0.06em;text-decoration:underline;">✏️ Have a room code? Enter it here</button>
++              <button id="enterCodeToggleBtn" onclick="toggleManualCode()" style="background:none;border:none;color:var(--gold-bright);cursor:pointer;font-size:0.82rem;font-family:inherit;font-weight:700;letter-spacing:0.06em;text-decoration:underline;"><span class="theme-icon">#</span><span>Have a room code? Enter it here</span></button>
+             </div>
+             <div id="manualCodeRow" style="display:none;margin-top:8px;">
+               <div class="lobby-row">
+                 <label>Room Code</label>
+                 <input type="text" id="lobbyCode" placeholder="e.g. AB3X" maxlength="4" style="text-transform:uppercase;letter-spacing:0.2em;font-size:1.2rem;">
+               </div>
+-              <button class="pill-btn pill-btn-end" id="lobbyJoinConfirmBtn" style="width:100%;margin-top:8px;">✅ JOIN</button>
++              <button class="pill-btn pill-btn-gold" id="lobbyJoinConfirmBtn" style="width:100%;margin-top:8px;">
++                <span class="btn-mark" aria-hidden="true">&#10003;</span>
++                <span>JOIN</span>
++              </button>
+             </div>
+           </div>
+         </div>
+@@ -268,12 +441,12 @@
+           <div style="text-align:center;padding:20px 0 10px;">
+             <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--muted);letter-spacing:0.14em;margin-bottom:6px;">ROOM CODE</div>
+             <div id="lobbyRoomCode" style="font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:var(--gold-bright);letter-spacing:0.3em;text-shadow:0 0 20px rgba(255,209,102,0.5);"></div>
+-            <button class="pill-btn pill-btn-lock" id="shareRoomBtn" style="margin-top:10px;width:100%;" onclick="shareRoomLink()">📤 SHARE ROOM LINK</button>
++            <button class="pill-btn pill-btn-lock" id="shareRoomBtn" style="margin-top:10px;width:100%;" onclick="shareRoomLink()"><span class="theme-icon">UP</span><span>SHARE ROOM LINK</span></button>
+             <div id="shareFeedback" style="font-size:0.75rem;color:#06d6a0;margin-top:5px;min-height:16px;"></div>
+           </div>
+           <div id="lobbyPlayerList" style="margin-bottom:16px;"></div>
+           <div id="lobbyStatusMsg" style="text-align:center;color:var(--muted);font-size:0.85rem;margin-bottom:12px;">Waiting for players...</div>
+-          <button class="pill-btn pill-btn-roll" id="lobbyStartBtn" style="width:100%;display:none;">🎲 START GAME</button>
++          <button class="pill-btn pill-btn-roll" id="lobbyStartBtn" style="width:100%;display:none;"><span class="theme-icon">D6</span><span>START GAME</span></button>
+           <button class="pill-btn pill-btn-new"  id="lobbyBackBtn"  style="width:100%;margin-top:8px;">← Back</button>
+         </div>
+ 
+@@ -283,6 +456,12 @@
+       <!-- ══ GAME SCREEN ══ -->
+       <div id="gameScreen" style="display:none;">
+ 
++        <div class="game-play-hero" aria-hidden="true">
++          <div class="game-play-logo">
++            <img src="assets/logowithtitle.png" alt="PigNusDice.com" draggable="false">
++          </div>
++        </div>
++
+         <!-- Player token strip -->
+         <div class="players-strip" id="playersStrip"></div>
+ 
+@@ -298,7 +477,7 @@
+             <span class="pot-info-value" id="roundInfoDisplay">1</span>
+           </div>
+           <div class="pot-info-center">
+-            <span class="pot-icon">🏦</span>
++            <span class="pot-icon theme-icon">POT</span>
+             <span class="pot-info-value pot-highlight" id="potInfoDisplay">0</span>
+             <span class="pot-info-label">TOKENS IN POT</span>
+           </div>
+@@ -313,7 +492,7 @@
+ 
+         <!-- Round results inline bar -->
+         <div id="resultsBar">
+-          <div class="results-bar-title">🏆 ROUND RESULTS 🏆</div>
++          <div class="results-bar-title"><span class="theme-icon">WIN</span> ROUND RESULTS <span class="theme-icon">WIN</span></div>
+           <div class="results-bar-scores" id="resultsBarScores"></div>
+           <div class="results-bar-winner" id="resultsBarWinner"></div>
+         </div>
+@@ -323,16 +502,16 @@
+ 
+           <div class="board-header">
+             <div class="board-title-group">
+-              <span style="font-size:1.1rem;">🎲</span>
++              <span class="theme-icon">D6</span>
+               <div class="board-player-name" id="activeName">YOU</div>
+             </div>
+             <div class="board-right-info">
+               <div class="board-tokens-tag">
+-                <span>🪙</span>
++                <span class="theme-icon">$</span>
+                 <span>TOKENS: <strong id="activeTokensVal">500</strong></span>
+               </div>
+               <div class="board-ante-tag">
+-                <span>🎲</span>
++                <span class="theme-icon">D6</span>
+                 <span id="anteRollTag">ANTE: 50 | ROLL COST: 10</span>
+               </div>
+             </div>
+@@ -347,44 +526,44 @@
+           </div>
+ 
+           <!-- Qualification hand zone -->
+-          <div class="hand-zone">
++          <div class="hand-zone qualify-zone">
+             <div class="zone-label">
+-              <span class="zone-icon">🔑</span>
++              <span class="zone-icon theme-icon">1-4</span>
+               QUALIFICATION HAND (must lock a 1 AND a 4)
+             </div>
+             <div class="dice-row" id="qualifyRow">
+-              <span class="zone-hint">⚡ Lock a 1 and a 4 (any number per roll)</span>
++              <span class="zone-hint"><span class="theme-icon">!</span> Lock a 1 and a 4 (any number per roll)</span>
+             </div>
+           </div>
+ 
+           <!-- Scoring hand zone -->
+-          <div class="hand-zone">
++          <div class="hand-zone scoring-zone">
+             <div class="zone-label">
+-              <span class="zone-icon">🎯</span>
++              <span class="zone-icon theme-icon">SUM</span>
+               SCORING HAND (max 4 dice - sum = final score)
+             </div>
+             <div class="dice-row" id="scoringRow">
+-              <span class="zone-hint-dim">🎲 Lock up to 4 scoring dice here</span>
++              <span class="zone-hint-dim"><span class="theme-icon">D6</span> Lock up to 4 scoring dice here</span>
+             </div>
+           </div>
+ 
+           <!-- Current roll zone -->
+-          <div class="hand-zone">
++          <div class="hand-zone roll-zone">
+             <div class="zone-label" id="rollZoneLabel">
+-              <span class="zone-icon">🎲</span>
++              <span class="zone-icon theme-icon">D6</span>
+               CURRENT ROLL (rolls: 0/6) | Cost: 10
+             </div>
+             <div class="dice-row" id="rollRow">
+-              <span class="zone-hint">⚡ Press ROLL (cost 10)</span>
++              <span class="zone-hint"><span class="theme-icon">!</span> Press ROLL (cost 10)</span>
+             </div>
+             <div id="lockHintLine" style="display:none; margin-top:6px; font-size:0.75rem; color:#06d6a0; text-align:center;">
+-              ✅ Select any number of dice (minimum 1) then press LOCK
++              <span class="theme-icon">OK</span> Select any number of dice (minimum 1) then press LOCK
+             </div>
+           </div>
+ 
+           <!-- Mid-roll betting strip -->
+           <div id="midRollBetting">
+-            <div class="mid-bet-title">🪙 BET BEFORE NEXT ROLL</div>
++            <div class="mid-bet-title"><span class="theme-icon">$</span> BET BEFORE NEXT ROLL</div>
+             <div class="mid-bet-row">
+               <button class="step-btn" id="midBetMinus">−</button>
+               <input type="number" class="bet-display" id="midBetDisplay" value="10" min="10" step="10">
+@@ -411,7 +590,7 @@
+ 
+         <!-- Between-turns betting panel -->
+         <div id="bettingPanel">
+-          <div class="betting-title">🪙 BETTING — <span id="bettingPlayerName"></span></div>
++          <div class="betting-title"><span class="theme-icon">$</span> BETTING — <span id="bettingPlayerName"></span></div>
+           <div id="betHandStatus" style="font-size:0.78rem;color:var(--muted);margin-bottom:8px;text-align:center;"></div>
+           <div class="bet-controls">
+             <button class="step-btn" id="betMinus">−</button>
+@@ -430,16 +609,17 @@
+       </div><!-- /gameScreen -->
+     </div><!-- /game-main -->
+ 
+-    <div class="ad-slot ad-slot-side">📢 Ad</div>
++    <div class="ad-slot ad-slot-side"><span class="theme-icon">AD</span> Ad</div>
+   </div><!-- /game-layout -->
+ 
+-  <div class="ad-slot ad-slot-bottom">📢 Advertisement</div>
++  <div class="ad-slot ad-slot-bottom"><span class="theme-icon">AD</span> Advertisement</div>
+ </div><!-- /app -->
+ 
+ <!-- Token Packs Modal -->
+ <div id="tokenPacksModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:200;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeTokenPacks()">
+   <div style="background:#1e1a2e;border:2px solid #e63e6d;border-radius:22px;padding:24px;max-width:400px;width:100%;max-height:90dvh;overflow-y:auto;box-shadow:0 0 40px rgba(230,62,109,0.3);">
+-    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.12em;text-align:center;margin-bottom:4px;color:#ffd166;">🪙 BUY TOKENS</div>
++    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.12em;text-align:center;margin-bottom:4px;color:#ffd166;"><span class="theme-icon">$</span> BUY TOKENS</div>
++    <div class="token-pack-art" aria-hidden="true"></div>
+     <div style="text-align:center;font-size:0.82rem;color:#6a5a80;margin-bottom:18px;">Boost your stack with a token pack</div>
+     <div id="tokenPacksLoginNote" style="display:none;text-align:center;background:rgba(230,62,109,0.1);border:1px solid rgba(230,62,109,0.3);border-radius:10px;padding:10px;margin-bottom:14px;font-size:0.85rem;color:#e63e6d;">Sign in to an account to purchase tokens</div>
+     <div class="token-pack-card">
+@@ -456,7 +636,7 @@
+       <div class="token-pack-info"><div class="token-pack-amount">15,000 Tokens</div><div class="token-pack-price">$9.99</div></div>
+       <button class="token-pack-btn" data-pack-id="value" onclick="tokenPackBuy('value')">BUY</button>
+     </div>
+-    <button onclick="closeTokenPacks()" class="pill-btn pill-btn-new" style="width:100%;margin-top:16px;justify-content:center;">✕ Close</button>
++    <button onclick="closeTokenPacks()" class="pill-btn pill-btn-new" style="width:100%;margin-top:16px;justify-content:center;"><span class="theme-icon">X</span><span>Close</span></button>
+   </div>
+ </div>
+ 
+@@ -475,6 +655,20 @@
+   </div>
+ </div>
+ 
++<div class="theme-message-modal" id="themeMessageModal" hidden>
++  <div class="theme-message-card" role="dialog" aria-modal="true" aria-labelledby="themeMessageTitle" aria-describedby="themeMessageBody">
++    <div class="theme-message-head">
++      <span class="theme-icon" id="themeMessageIcon" aria-hidden="true">D6</span>
++      <span id="themeMessageTitle">Game Message</span>
++    </div>
++    <div class="theme-message-body" id="themeMessageBody"></div>
++    <div class="theme-message-actions" id="themeMessageActions">
++      <button class="pill-btn pill-btn-new" id="themeMessageCancel" type="button">Cancel</button>
++      <button class="pill-btn pill-btn-gold" id="themeMessageConfirm" type="button">OK</button>
++    </div>
++  </div>
++</div>
++
+ <!-- Results Overlay (full-screen, for game over / next round) -->
+ <div id="resultsOverlay">
+   <div class="results-card">
+diff --git a/js/game.js b/js/game.js
+index 1a53e9c..5051dfb 100644
+--- a/js/game.js
++++ b/js/game.js
+@@ -37,10 +37,14 @@ const BLANK_DIE_URL = "data:image/svg+xml," + encodeURIComponent(
+   `<text x="50" y="66" font-size="40" text-anchor="middle" fill="#bd895a" font-family="monospace">?</text></svg>`
+ );
+ 
++const DICE_IMAGE_PATH = 'assets/dice/dice_';
++
+ function setDieImg(el, value, selected, locked) {
+-  el.style.backgroundImage = value
+-    ? `url('${getDiceSVG(value, selected, locked)}')`
+-    : `url("${BLANK_DIE_URL}")`;
++  if (value) {
++    el.style.backgroundImage = `url("${DICE_IMAGE_PATH}${value}.png")`;
++    return;
++  }
++  el.style.backgroundImage = `url("${BLANK_DIE_URL}")`;
+ }
+ 
+ // ══════════════════════════════════════════
+diff --git a/js/multiplayer.js b/js/multiplayer.js
+index 02560b5..ecdedab 100644
+--- a/js/multiplayer.js
++++ b/js/multiplayer.js
+@@ -23,6 +23,75 @@ document.addEventListener('visibilitychange', () => {
+ const _wsProto   = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+ const _wsDefault = _wsProto + '//' + window.location.host;
+ 
++function escapeHtml(value) {
++  return String(value).replace(/[&<>"']/g, ch => ({
++    '&': '&amp;',
++    '<': '&lt;',
++    '>': '&gt;',
++    '"': '&quot;',
++    "'": '&#39;',
++  }[ch]));
++}
++
++function themeIcon(label) {
++  return '<span class="theme-icon" aria-hidden="true">' + escapeHtml(label) + '</span>';
++}
++
++function showThemeDialog(options = {}) {
++  const modal = document.getElementById('themeMessageModal');
++  const titleEl = document.getElementById('themeMessageTitle');
++  const bodyEl = document.getElementById('themeMessageBody');
++  const iconEl = document.getElementById('themeMessageIcon');
++  const actionsEl = document.getElementById('themeMessageActions');
++  const confirmBtn = document.getElementById('themeMessageConfirm');
++  const cancelBtn = document.getElementById('themeMessageCancel');
++  if (!modal || !titleEl || !bodyEl || !confirmBtn || !cancelBtn) {
++    return Promise.resolve(true);
++  }
++
++  const hasCancel = options.cancelText !== null;
++  titleEl.textContent = options.title || 'Game Message';
++  bodyEl.textContent = options.message || '';
++  if (iconEl) iconEl.textContent = options.icon || 'D6';
++  confirmBtn.textContent = options.confirmText || 'OK';
++  cancelBtn.textContent = options.cancelText || 'Cancel';
++  cancelBtn.style.display = hasCancel ? '' : 'none';
++  if (actionsEl) actionsEl.classList.toggle('single', !hasCancel);
++  modal.hidden = false;
++  confirmBtn.focus();
++
++  return new Promise(resolve => {
++    const close = result => {
++      modal.hidden = true;
++      confirmBtn.onclick = null;
++      cancelBtn.onclick = null;
++      modal.onclick = null;
++      document.removeEventListener('keydown', onKeyDown);
++      resolve(result);
++    };
++    const onKeyDown = event => {
++      if (event.key === 'Escape') close(false);
++      if (event.key === 'Enter') close(true);
++    };
++    confirmBtn.onclick = () => close(true);
++    cancelBtn.onclick = () => close(false);
++    modal.onclick = event => {
++      if (event.target === modal && hasCancel) close(false);
++    };
++    document.addEventListener('keydown', onKeyDown);
++  });
++}
++
++function showThemeAlert(message, options = {}) {
++  return showThemeDialog({
++    title: options.title || 'Table Notice',
++    message,
++    icon: options.icon || 'D6',
++    confirmText: options.confirmText || 'OK',
++    cancelText: null,
++  });
++}
++
+ function normalizeWebSocketUrl(value) {
+   const raw = String(value || '').trim();
+   if (!raw) return _wsDefault;
+@@ -136,7 +205,7 @@ function updateAccountBadge() {
+     return;
+   }
+   if (auth.username) {
+-    if (text) text.textContent = '👤 ' + auth.username + ' — 💰 ' + (auth.tokens !== null ? auth.tokens : '—') + ' tokens';
++    if (text) text.innerHTML = themeIcon('P') + ' ' + escapeHtml(auth.username) + ' — ' + themeIcon('$') + ' ' + (auth.tokens !== null ? auth.tokens : '—') + ' tokens';
+     badge.style.display = 'flex';
+     badge.style.alignItems = 'center';
+     badge.style.justifyContent = 'center';
+@@ -180,9 +249,9 @@ async function claimDailyBonus() {
+       auth.tokens = data.tokens;
+       updateAccountBadge();
+       if (window.SFX) window.SFX.token();
+-      if (fbEl) { fbEl.textContent = '✅ +' + data.tokensAdded + ' tokens claimed!'; fbEl.style.color = '#06d6a0'; }
++      if (fbEl) { fbEl.textContent = '+' + data.tokensAdded + ' tokens claimed!'; fbEl.style.color = '#ffd166'; }
+     } else if (res.status === 429) {
+-      if (fbEl) { fbEl.textContent = '⏳ Next bonus in ' + data.hoursLeft + 'h'; fbEl.style.color = '#f59e1b'; }
++      if (fbEl) { fbEl.textContent = 'Next bonus in ' + data.hoursLeft + 'h'; fbEl.style.color = '#f59e1b'; }
+       if (btn) btn.disabled = false;
+     } else {
+       if (fbEl) { fbEl.textContent = data.error || 'Error'; fbEl.style.color = '#ff6b6b'; }
+@@ -197,7 +266,7 @@ async function claimDailyBonus() {
+ }
+ 
+ async function authLogout() {
+-  if (mp.roomCode && !confirmLeaveActiveRoom('Log out and leave the current game?')) return;
++  if (mp.roomCode && !(await confirmLeaveActiveRoom('Log out and leave the current game?'))) return;
+   const oldToken = auth.sessionToken;
+   auth.sessionToken = null;
+   auth.username     = null;
+@@ -211,7 +280,7 @@ async function authLogout() {
+       headers: { 'Authorization': 'Bearer ' + oldToken },
+     }).catch(() => {});
+   }
+-  leaveCurrentRoom({ confirm: false, closeSocket: true, resetLobby: false });
++  await leaveCurrentRoom({ confirm: false, closeSocket: true, resetLobby: false });
+   setGameActive(false);
+   closeGameMenu();
+   document.getElementById('lobbyScreen').style.display = 'none';
+@@ -246,6 +315,27 @@ async function authInit() {
+ 
+ authInit();
+ 
++function selectedGameChoice() {
++  return document.querySelector('input[name="gameChoice"]:checked')?.value || 'onefourtwentyfour';
++}
++
++async function ensurePlayableGameChoice() {
++  if (selectedGameChoice() !== 'threesaway') return true;
++  await showThemeAlert("3's Away is coming soon. Choose 1-4-24 to play now.", {
++    title: 'Coming Soon',
++    icon: 'D6',
++  });
++  const defaultChoice = document.querySelector('input[name="gameChoice"][value="onefourtwentyfour"]');
++  if (defaultChoice) defaultChoice.checked = true;
++  return false;
++}
++
++document.querySelectorAll('input[name="gameChoice"]').forEach(input => {
++  input.addEventListener('change', () => {
++    if (input.checked && input.value === 'threesaway') ensurePlayableGameChoice();
++  });
++});
++
+ // Tab switching
+ document.getElementById('loginTabBtn').addEventListener('click', () => {
+   document.getElementById('loginForm').style.display    = '';
+@@ -264,9 +354,10 @@ document.getElementById('registerTabBtn').addEventListener('click', () => {
+ 
+ // Login
+ document.getElementById('loginBtn').addEventListener('click', async () => {
++  if (!(await ensurePlayableGameChoice())) return;
+   const identifier = document.getElementById('loginIdentifier').value.trim();
+   const password = document.getElementById('loginPassword').value;
+-  if (!identifier || !password) { authShowError('Enter your email/username and password'); return; }
++  if (!identifier || !password) { authShowError('Enter your username and password'); return; }
+   try {
+     const res  = await fetch('/api/login', {
+       method: 'POST',
+@@ -289,6 +380,24 @@ document.getElementById('loginPassword').addEventListener('keypress', e => {
+   if (e.key === 'Enter') document.getElementById('loginBtn').click();
+ });
+ 
++document.getElementById('guestBtn').addEventListener('click', async () => {
++  if (!(await ensurePlayableGameChoice())) return;
++  auth.sessionToken = null;
++  auth.username = null;
++  auth.email = null;
++  auth.role = null;
++  auth.tokens = null;
++  localStorage.removeItem('pignusDiceSession');
++  mp.myName = 'Guest' + Math.floor(1000 + Math.random() * 9000);
++  authShowLobby();
++  const nameEl = document.getElementById('lobbyName');
++  if (nameEl) {
++    nameEl.value = mp.myName;
++    nameEl.readOnly = false;
++    nameEl.style.opacity = '';
++  }
++});
++
+ // Register
+ document.getElementById('registerBtn').addEventListener('click', async () => {
+   const username = document.getElementById('regUsername').value.trim();
+@@ -362,7 +471,7 @@ async function fetchAndShowRooms() {
+     const data = await res.json();
+     const rooms = data.rooms || [];
+     if (!rooms.length) {
+-      listEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:0.82rem;padding:12px;">No rooms available — create one!</div>';
++      listEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:0.82rem;padding:12px;">No rooms available right now. Create a room to start a table.</div>';
+       return;
+     }
+     listEl.innerHTML = '';
+@@ -377,7 +486,7 @@ async function fetchAndShowRooms() {
+       card.innerHTML =
+         '<div class="room-browser-info">' +
+           '<span class="room-browser-code">' + r.code + '</span>' +
+-          '<span class="room-browser-players">👥 ' + totalPlayers + '/' + r.maxPlayers + '</span>' +
++          '<span class="room-browser-players">' + themeIcon('P') + ' ' + totalPlayers + '/' + r.maxPlayers + '</span>' +
+           statusLabel +
+         '</div>' +
+         '<button class="room-browser-join-btn">' + btnLabel + '</button>';
+@@ -399,17 +508,20 @@ async function fetchAndShowRooms() {
+   }
+ }
+ 
+-document.getElementById('lobbyCreateBtn').addEventListener('click', () => {
+-  if (mp.connecting) return;
+-  mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
+-  mp.serverUrl = normalizeWebSocketUrl(document.getElementById('lobbyServer').value);
+-  connectWS(() => {
+-    mp.ws.send(JSON.stringify({
+-      type: 'create_room', name: mp.myName,
+-      startTokens: 500, sessionToken: auth.sessionToken || null,
+-    }));
++const lobbyCreateBtn = document.getElementById('lobbyCreateBtn');
++if (lobbyCreateBtn) {
++  lobbyCreateBtn.addEventListener('click', () => {
++    if (mp.connecting) return;
++    mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
++    mp.serverUrl = normalizeWebSocketUrl(document.getElementById('lobbyServer').value);
++    connectWS(() => {
++      mp.ws.send(JSON.stringify({
++        type: 'create_room', name: mp.myName,
++        startTokens: 500, sessionToken: auth.sessionToken || null,
++      }));
++    });
+   });
+-});
++}
+ 
+ document.getElementById('lobbyJoinConfirmBtn').addEventListener('click', () => {
+   if (mp.connecting) return;
+@@ -605,7 +717,7 @@ function handleServerMsg(msg) {
+     case 'your_turn':
+       if (msg.playerId === mp.myId) {
+         if (msg.cantAffordRoll) {
+-          showMsg("⚠️ Not enough tokens to roll! End your turn with your current hand.", 'warn');
++          showMsg("Not enough tokens to roll! End your turn with your current hand.", 'warn');
+         } else {
+           showMsg('Your turn! Roll the dice.');
+         }
+@@ -613,14 +725,14 @@ function handleServerMsg(msg) {
+         if (window.SFX) window.SFX.yourTurn();
+       } else {
+         const isAI = mp.gameState && mp.gameState.players.find(p => p.id === msg.playerId)?.isAI;
+-        showMsg(isAI ? '🤖 Computer is thinking...' : 'Waiting for ' + msg.playerName + ' to play...');
++        showMsg(isAI ? 'Computer is thinking...' : 'Waiting for ' + msg.playerName + ' to play...');
+         setOnlineButtonsEnabled(false);
+       }
+       break;
+ 
+     case 'bust':
+       if (msg.playerId === mp.myId) {
+-        showMsg("💸 Not enough tokens to roll and you haven't qualified — Auto-folding...", 'error');
++        showMsg("Not enough tokens to roll and you haven't qualified — Auto-folding...", 'error');
+         if (window.SFX) window.SFX.roundLose();
+       } else {
+         showMsg(msg.playerName + " can't afford to roll — auto-folding.", 'warn');
+@@ -640,7 +752,7 @@ function handleServerMsg(msg) {
+ 
+     case 'phase_change':
+       if (msg.subRound >= 2) {
+-        showMsg('⚔️ SUB-ROUND ' + msg.subRound + ' — Roll your remaining dice!');
++        showMsg('SUB-ROUND ' + msg.subRound + ' — Roll your remaining dice!');
+         if (window.SFX) window.SFX.phase2();
+       }
+       break;
+@@ -698,7 +810,7 @@ function showLobbyWaiting(code, isHost, isSinglePlayer) {
+   document.getElementById('shareFeedback').textContent  = '';
+   document.getElementById('shareRoomBtn').style.display = isSinglePlayer ? 'none' : '';
+   document.getElementById('lobbyStatusMsg').textContent =
+-    isSinglePlayer ? '🤖 Practice mode — starting shortly...'
++    isSinglePlayer ? 'Practice mode — starting shortly...'
+     : isHost ? 'You are the host. Waiting for players to join...'
+     : 'Joined! Waiting for host to start...';
+ }
+@@ -714,7 +826,7 @@ function shareRoomLink() {
+     navigator.share({ title: 'PignusDice — Room ' + code, text, url }).catch(() => {});
+   } else if (navigator.clipboard) {
+     navigator.clipboard.writeText(url).then(() => {
+-      fb.textContent = '✅ Link copied to clipboard!';
++      fb.textContent = 'Link copied to clipboard!';
+       setTimeout(() => { fb.textContent = ''; }, 3000);
+     }).catch(() => {
+       fb.textContent = 'Link: ' + url;
+@@ -851,9 +963,15 @@ function confirmLeaveActiveRoom(message) {
+   const activeGame = isVisible('gameScreen') && !gameOverVisible;
+   const waitingRoom = isVisible('lobbyWaiting');
+   if (!activeGame && !waitingRoom && !mp.roomCode) return true;
+-  return window.confirm(message || (activeGame
+-    ? 'Leave this active game and return to the lobby?'
+-    : 'Leave this room and return to the lobby?'));
++  return showThemeDialog({
++    title: activeGame ? 'Leave The Table?' : 'Leave Room?',
++    message: message || (activeGame
++      ? 'Leave this active game and return to the lobby?'
++      : 'Leave this room and return to the lobby?'),
++    icon: activeGame ? 'D6' : 'POT',
++    confirmText: activeGame ? 'LEAVE GAME' : 'LEAVE ROOM',
++    cancelText: 'STAY',
++  });
+ }
+ 
+ function resetLobbyView() {
+@@ -876,9 +994,9 @@ function resetLobbyView() {
+   closeGameMenu();
+ }
+ 
+-function leaveCurrentRoom(options = {}) {
++async function leaveCurrentRoom(options = {}) {
+   const confirmFirst = options.confirm !== false;
+-  if (confirmFirst && !confirmLeaveActiveRoom()) return false;
++  if (confirmFirst && !(await confirmLeaveActiveRoom())) return false;
+   if (!options.alreadyDisconnected) {
+     disconnectWS({ notifyServer: true });
+   } else {
+@@ -902,7 +1020,7 @@ function leaveCurrentRoom(options = {}) {
+   return true;
+ }
+ 
+-function returnToLobby(options = {}) {
++async function returnToLobby(options = {}) {
+   if (options && options.type) options = {};
+   return leaveCurrentRoom(options);
+ }
+@@ -1072,10 +1190,10 @@ function renderOnlineGame(snap) {
+       (p.id === snap.turnPlayerId ? ' active-turn' : '') +
+       (p.folded  ? ' folded'      : '') +
+       (p.tokens <= 0 ? ' eliminated' : '');
+-    const tabQual = hasCompletedQualifyingHand(p) ? '✅' : p.folded ? '❌' : p.rollsUsed > 0 ? '⚠' : '—';
++    const tabQual = hasCompletedQualifyingHand(p) ? themeIcon('OK') : p.folded ? themeIcon('X') : p.rollsUsed > 0 ? themeIcon('!') : '—';
+     tab.innerHTML =
+       '<div class="tab-name" style="color:' + p.color + '">' + p.name + (p.id === mp.myId ? ' (You)' : '') + '</div>' +
+-      '<div class="tab-tokens">💰 ' + p.tokens + '</div>' +
++      '<div class="tab-tokens">' + themeIcon('$') + ' ' + p.tokens + '</div>' +
+       '<div class="tab-score">' + tabQual + '</div>' +
+       '<div class="turn-arrow">▼</div>';
+     strip.appendChild(tab);
+@@ -1107,7 +1225,7 @@ function renderOnlineGame(snap) {
+       '</div>' +
+       '<div class="opp-qual-slots">' + qualHTML + '</div>' +
+       '<div class="opp-status ' + (hasQualified ? 'qualified' : p.folded ? '' : 'no14') + '">' +
+-        (p.folded ? '❌ Folded' : hasQualified ? '✅ Qualified' : p.rollsUsed > 0 ? '⚠ Playing...' : '⏳ Waiting') +
++        (p.folded ? themeIcon('X') + ' Folded' : hasQualified ? themeIcon('OK') + ' Qualified' : p.rollsUsed > 0 ? themeIcon('!') + ' Playing...' : themeIcon('...') + ' Waiting') +
+       '</div>';
+     grid.appendChild(card);
+   });
+@@ -1126,13 +1244,13 @@ function renderOnlineMyBoard(me, snap) {
+   const subRound = snap.subRound || 1;
+   document.getElementById('lockHint').style.display = me.mustLockBeforeRoll ? '' : 'none';
+   document.getElementById('rollZoneLabel').innerHTML = subRound > 1
+-    ? '<span class="zone-icon">🎲</span> SUB-ROUND ' + subRound + ' — Roll remaining dice, lock ≥1, then bet | Cost: ' + ROLL_COST
+-    : '<span class="zone-icon">🎲</span> ROUND ' + subRound + ' — Roll, select dice to keep, then bet | Cost: ' + ROLL_COST;
++    ? '<span class="zone-icon theme-icon">D6</span> SUB-ROUND ' + subRound + ' — Roll remaining dice, lock ≥1, then bet | Cost: ' + ROLL_COST
++    : '<span class="zone-icon theme-icon">D6</span> ROUND ' + subRound + ' — Roll, select dice to keep, then bet | Cost: ' + ROLL_COST;
+ 
+   const qRow = document.getElementById('qualifyRow');
+   qRow.innerHTML = '';
+   if (!me.qualifyHand.length) {
+-    qRow.innerHTML = '<span class="zone-hint">⚡ Lock a 1 and a 4 (any number per roll)</span>';
++    qRow.innerHTML = '<span class="zone-hint">' + themeIcon('!') + ' Lock a 1 and a 4 (any number per roll)</span>';
+   } else {
+     me.qualifyHand.forEach(v => {
+       const d = document.createElement('div');
+@@ -1143,7 +1261,7 @@ function renderOnlineMyBoard(me, snap) {
+   const sRow = document.getElementById('scoringRow');
+   sRow.innerHTML = '';
+   if (!me.scoringHand.length) {
+-    sRow.innerHTML = '<span class="zone-hint-dim">🎲 Lock up to 4 scoring dice here</span>';
++    sRow.innerHTML = '<span class="zone-hint-dim">' + themeIcon('D6') + ' Lock up to 4 scoring dice here</span>';
+   } else {
+     me.scoringHand.forEach(v => {
+       const d = document.createElement('div');
+@@ -1151,13 +1269,13 @@ function renderOnlineMyBoard(me, snap) {
+     });
+     const qc = me.qualifyHand.includes(1) && me.qualifyHand.includes(4);
+     if (qc)
+-      sRow.insertAdjacentHTML('beforeend', '<span class="zone-hint" style="font-size:0.85rem;margin-left:8px">&#9989; Qualified</span>');
++      sRow.insertAdjacentHTML('beforeend', '<span class="zone-hint" style="font-size:0.85rem;margin-left:8px">' + themeIcon('OK') + ' Qualified</span>');
+   }
+ 
+   const rRow = document.getElementById('rollRow');
+   rRow.innerHTML = '';
+   if (!me.currentDice || !me.currentDice.length) {
+-    rRow.innerHTML = '<span class="zone-hint">⚡ ' + (me.rollsUsed === 0 ? 'Press ROLL (cost ' + ROLL_COST + ')' : 'Press ROLL DICE for next roll') + '</span>';
++    rRow.innerHTML = '<span class="zone-hint">' + themeIcon('!') + ' ' + (me.rollsUsed === 0 ? 'Press ROLL (cost ' + ROLL_COST + ')' : 'Press ROLL DICE for next roll') + '</span>';
+     document.getElementById('lockHintLine').style.display = 'none';
+   } else {
+     if (!window._onlineSelected) window._onlineSelected = new Set();
+@@ -1221,9 +1339,9 @@ function showOnlineBetting(currentBet, bettingPhase) {
+   const handStatusEl = document.getElementById('betHandStatus');
+   if (handStatusEl) {
+     const qualStr = me.qualifyHand.includes(1) && me.qualifyHand.includes(4)
+-      ? '✅ Qualified'
+-      : (me.qualifyHand.includes(1) ? '🔑 Have 1 — need 4' : me.qualifyHand.includes(4) ? '🔑 Have 4 — need 1' : '🔑 Need 1 and 4');
+-    handStatusEl.textContent = qualStr + ' · Scoring: ' + (me.scoringHand ? me.scoringHand.length : 0) + '/4 · ' + slotsLeft + ' dice slot' + (slotsLeft !== 1 ? 's' : '') + ' remaining';
++      ? themeIcon('OK') + ' Qualified'
++      : (me.qualifyHand.includes(1) ? themeIcon('1-4') + ' Have 1 — need 4' : me.qualifyHand.includes(4) ? themeIcon('1-4') + ' Have 4 — need 1' : themeIcon('1-4') + ' Need 1 and 4');
++    handStatusEl.innerHTML = qualStr + ' · Scoring: ' + (me.scoringHand ? me.scoringHand.length : 0) + '/4 · ' + slotsLeft + ' dice slot' + (slotsLeft !== 1 ? 's' : '') + ' remaining';
+   }
+ 
+   let betAmt = Math.max(10, callAmt);
+@@ -1294,13 +1412,13 @@ function renderOnlineResults(msg) {
+   });
+   const winners = msg.players.filter(p => msg.winners.includes(p.id));
+   if (msg.potWentToHouse) {
+-    winEl.innerHTML = '🏦 No one qualified — pot forfeit to the house!';
++    winEl.innerHTML = themeIcon('POT') + ' No one qualified — pot forfeit to the house!';
+   } else if (winners.length) {
+     const w = winners[0];
+     const potShare = Math.floor(msg.pot / winners.length);
+     const iWonThis = w.id === mp.myId;
+     const wonTag   = iWonThis ? (msg.isSinglePlayer ? ' (+' + potShare + ' practice tokens)' : ' +' + potShare + ' tokens!') : '';
+-    winEl.innerHTML = '👑 WINNER: ' + w.name + ' — Score: ' + w.finalScore + wonTag + ' 👑';
++    winEl.innerHTML = themeIcon('WIN') + ' WINNER: ' + w.name + ' — Score: ' + w.finalScore + wonTag + ' ' + themeIcon('WIN');
+   } else {
+     winEl.textContent = 'No winner this round';
+   }
+@@ -1333,14 +1451,14 @@ function renderOnlineGameOver(msg) {
+   const btn    = document.getElementById('nextRoundBtn');
+ 
+   if (msg.isSinglePlayer) {
+-    title.textContent = '🤖 PRACTICE COMPLETE';
++    title.innerHTML = themeIcon('AI') + ' PRACTICE COMPLETE';
+   } else {
+-    title.textContent = '🎮 GAME OVER';
++    title.innerHTML = themeIcon('END') + ' GAME OVER';
+   }
+ 
+   let bodyHtml = sorted.map(p =>
+     '<div class="score-row ' + (p.tokens === sorted[0].tokens ? 'winner-row' : '') + '">' +
+-      '<div class="score-name">' + p.name + (p.id === mp.myId ? ' (You)' : p.isAI ? ' 🤖' : '') + '</div>' +
++      '<div class="score-name">' + p.name + (p.id === mp.myId ? ' (You)' : p.isAI ? ' ' + themeIcon('AI') : '') + '</div>' +
+       '<div class="score-val">' + p.tokens + '</div>' +
+     '</div>'
+   ).join('');
+@@ -1412,7 +1530,7 @@ function closeTokenPacks() {
+ }
+ async function tokenPackBuy(packId) {
+   if (!auth.sessionToken) {
+-    alert('Please sign in to purchase token packs.');
++    await showThemeAlert('Please sign in to purchase token packs.', { title: 'Tokens Locked', icon: '$' });
+     closeTokenPacks();
+     return;
+   }
+@@ -1432,14 +1550,14 @@ async function tokenPackBuy(packId) {
+     if (!res.ok) throw new Error(data.error || 'Unable to start checkout');
+     window.location.href = data.url;
+   } catch (error) {
+-    alert(error.message);
++    await showThemeAlert(error.message, { title: 'Checkout Notice', icon: '$' });
+     if (btn) btn.disabled = false;
+   }
+ }
+ 
+-function openRewardRedeem() {
++async function openRewardRedeem() {
+   if (!auth.sessionToken) {
+-    alert('Please sign in to redeem reward codes.');
++    await showThemeAlert('Please sign in to redeem reward codes.', { title: 'Reward Locked', icon: 'WIN' });
+     return;
+   }
+   const modal = document.getElementById('rewardRedeemModal');
+diff --git a/server.js b/server.js
+index 72e80df..c76891c 100644
+--- a/server.js
++++ b/server.js
+@@ -579,6 +579,11 @@ function makeCode() {
+   return Math.random().toString(36).slice(2,6).toUpperCase();
+ }
+ 
++function guestName(value) {
++  const clean = String(value || '').trim().replace(/[^\w -]/g, '').slice(0, 18);
++  return clean || `Guest${makeCode()}`;
++}
++
+ function broadcast(room, msg) {
+   if (!room || room.closed) return;
+   const str = JSON.stringify(msg);
+@@ -1225,11 +1230,10 @@ wss.on('connection', ws => {
+ 
+       case 'create_room': {
+         const authUser = websocketUser(msg.sessionToken);
+-        if (!authUser) { sendTo(client, { type:'error', msg:'Please sign in again' }); break; }
+-        const uKey     = authUser.key;
+-        const acct     = authUser.user;
+-        const name     = acct.username;
+-        const startTok = Math.max(acct.tokens, 100);
++        const uKey     = authUser ? authUser.key : null;
++        const acct     = authUser ? authUser.user : null;
++        const name     = acct ? acct.username : guestName(msg.name);
++        const startTok = acct ? Math.max(acct.tokens, 100) : 500;
+         const vsComp   = !!msg.vsComputer;
+ 
+         const code = makeCode();
+@@ -1250,7 +1254,7 @@ wss.on('connection', ws => {
+         });
+         sendTo(client, { type:'room_created', code, playerId: client.id, isSinglePlayer: vsComp });
+         broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color,isAI:p.isAI||false})) });
+-        database.recordEvent('room.created', uKey, { roomCode: code, mode: vsComp ? 'practice' : 'multiplayer' });
++        database.recordEvent('room.created', uKey, { roomCode: code, mode: vsComp ? 'practice' : 'multiplayer', guest: !acct });
+ 
+         if (vsComp) {
+           // Add AI opponent and start immediately
+@@ -1280,11 +1284,10 @@ wss.on('connection', ws => {
+         if (room.isSinglePlayer) { sendTo(client, { type:'error', msg:'That is a private practice game' }); break; }
+ 
+         const authUser = websocketUser(msg.sessionToken);
+-        if (!authUser) { sendTo(client, { type:'error', msg:'Please sign in again' }); break; }
+-        const uKey     = authUser.key;
+-        const acct     = authUser.user;
+-        const name     = acct.username;
+-        const startTok = Math.max(acct.tokens, 100);
++        const uKey     = authUser ? authUser.key : null;
++        const acct     = authUser ? authUser.user : null;
++        const name     = acct ? acct.username : guestName(msg.name);
++        const startTok = acct ? Math.max(acct.tokens, 100) : 500;
+ 
+         client.roomCode = room.code;
+         client.name     = name;
+@@ -1320,7 +1323,7 @@ wss.on('connection', ws => {
+           sendTo(client, { type:'room_joined', code: room.code, playerId: client.id });
+           broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color,isAI:p.isAI||false})) });
+         }
+-        database.recordEvent('room.joined', uKey, { roomCode: room.code, pending: room.started });
++        database.recordEvent('room.joined', uKey, { roomCode: room.code, pending: room.started, guest: !acct });
+         break;
+       }
+ 

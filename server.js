@@ -5,7 +5,6 @@
  */
 
 const http   = require('http');
-const crypto = require('crypto');
 const fs     = require('fs');
 const path   = require('path');
 const { WebSocketServer } = require('ws');
@@ -17,13 +16,6 @@ const ROLL_COST   = 10;
 const MAX_ROLLS   = 6;
 const START_TOKENS = 500;
 const DAILY_BONUS  = 200;
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
-const TOKEN_PACKS = {
-  starter: { id: 'starter', tokens: 1000, unitAmount: 99, label: '1,000 Tokens' },
-  popular: { id: 'popular', tokens: 5000, unitAmount: 399, label: '5,000 Tokens' },
-  value: { id: 'value', tokens: 15000, unitAmount: 999, label: '15,000 Tokens' },
-};
 
 // ── Static file server ──────────────────────────────────────────────────────
 const MIME = {
@@ -35,6 +27,10 @@ const MIME = {
   '.png':  'image/png',
   '.ico':  'image/x-icon',
   '.svg':  'image/svg+xml',
+  '.wav':  'audio/wav',
+  '.mp3':  'audio/mpeg',
+  '.ogg':  'audio/ogg',
+  '.webm': 'audio/webm',
 };
 
 // ── Self-hosted database and authentication ──────────────────────────────────
@@ -116,75 +112,9 @@ function readBody(req, cb) {
   req.on('end',  () => { try { cb(JSON.parse(body)); } catch { cb(null); } });
 }
 
-function readRawBody(req, cb) {
-  const chunks = [];
-  let length = 0;
-  req.on('data', chunk => {
-    length += chunk.length;
-    if (length > 1024 * 1024) req.destroy();
-    else chunks.push(chunk);
-  });
-  req.on('end', () => cb(Buffer.concat(chunks)));
-}
-
-function publicOrigin(req) {
-  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/+$/, '');
-  const proto = (req.headers['x-forwarded-proto'] || '').split(',')[0] || (req.socket.encrypted ? 'https' : 'http');
-  const host = (req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`).split(',')[0];
-  return `${proto}://${host}`;
-}
-
 function isSecureRequest(req) {
   const proto = (req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
   return proto === 'https' || !!req.socket.encrypted;
-}
-
-function formEncode(value, prefix, pairs = []) {
-  if (value === undefined) return pairs;
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    Object.entries(value).forEach(([key, item]) => formEncode(item, prefix ? `${prefix}[${key}]` : key, pairs));
-  } else {
-    pairs.push([prefix, value == null ? '' : String(value)]);
-  }
-  return pairs;
-}
-
-async function createStripeCheckoutSession(params) {
-  const body = new URLSearchParams(formEncode(params)).toString();
-  const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body,
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error?.message || 'Stripe checkout session failed');
-  return data;
-}
-
-function verifyStripeSignature(rawBody, signatureHeader) {
-  if (!STRIPE_WEBHOOK_SECRET) return false;
-  const parts = String(signatureHeader || '').split(',').reduce((acc, item) => {
-    const [key, value] = item.split('=');
-    if (key && value) (acc[key] ||= []).push(value);
-    return acc;
-  }, {});
-  const timestamp = parts.t?.[0];
-  const signatures = parts.v1 || [];
-  if (!timestamp || !signatures.length) return false;
-  const ageMs = Math.abs(Date.now() - Number(timestamp) * 1000);
-  if (!Number.isFinite(ageMs) || ageMs > 5 * 60 * 1000) return false;
-  const expected = crypto
-    .createHmac('sha256', STRIPE_WEBHOOK_SECRET)
-    .update(`${timestamp}.${rawBody.toString('utf8')}`)
-    .digest('hex');
-  return signatures.some(signature => {
-    const left = Buffer.from(signature, 'hex');
-    const right = Buffer.from(expected, 'hex');
-    return left.length === right.length && crypto.timingSafeEqual(left, right);
-  });
 }
 
 const httpServer = http.createServer((req, res) => {
@@ -210,37 +140,6 @@ const httpServer = http.createServer((req, res) => {
       res.end();
       return;
     }
-  }
-
-  // ── POST /api/stripe/webhook ─────────────────────────────────────────────
-  if (pathname === '/api/stripe/webhook' && req.method === 'POST') {
-    readRawBody(req, rawBody => {
-      if (!STRIPE_WEBHOOK_SECRET) return json(500, { error: 'Stripe webhook secret is not configured' });
-      if (!verifyStripeSignature(rawBody, req.headers['stripe-signature'])) {
-        return json(400, { error: 'Invalid Stripe signature' });
-      }
-      let event;
-      try { event = JSON.parse(rawBody.toString('utf8')); }
-      catch { return json(400, { error: 'Invalid webhook body' }); }
-
-      if (event.type === 'checkout.session.completed') {
-        const session = event.data?.object || {};
-        if (session.payment_status === 'paid') {
-          const result = database.fulfillPaymentSession(session.id, {
-            stripePaymentIntentId: session.payment_intent || null,
-            stripeEventId: event.id || null,
-          });
-          if (result.error) {
-            database.recordEvent('tokens.purchase_webhook_error', null, {
-              stripeSessionId: session.id,
-              error: result.error,
-            });
-          }
-        }
-      }
-      json(200, { received: true });
-    });
-    return;
   }
 
   // ── POST /api/register ───────────────────────────────────────────────────
@@ -315,64 +214,6 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
-  // ── POST /api/payments/checkout ──────────────────────────────────────────
-  if (pathname === '/api/payments/checkout' && req.method === 'POST') {
-    const auth = authenticatedUser(req);
-    if (!auth) return json(401, { error: 'Not authenticated' });
-    if (!STRIPE_SECRET_KEY) return json(503, { error: 'Payment processing is not configured' });
-    readBody(req, async data => {
-      if (!data) return json(400, { error: 'Bad request' });
-      const pack = TOKEN_PACKS[String(data.packId || '')];
-      if (!pack) return json(400, { error: 'Unknown token pack' });
-      const origin = publicOrigin(req);
-      try {
-        const session = await createStripeCheckoutSession({
-          mode: 'payment',
-          success_url: `${origin}/?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${origin}/?payment=cancelled`,
-          client_reference_id: auth.user.id,
-          customer_email: auth.user.email || undefined,
-          line_items: {
-            0: {
-              quantity: 1,
-              price_data: {
-                currency: 'usd',
-                unit_amount: pack.unitAmount,
-                product_data: { name: `PigNusDice ${pack.label}` },
-              },
-            },
-          },
-          metadata: {
-            userId: auth.user.id,
-            userKey: auth.key,
-            packId: pack.id,
-            tokens: pack.tokens,
-          },
-        });
-        database.recordPaymentSession({
-          id: session.id,
-          userKey: auth.key,
-          userId: auth.user.id,
-          packId: pack.id,
-          tokens: pack.tokens,
-          amount: pack.unitAmount,
-          currency: 'usd',
-          status: 'pending',
-        });
-        database.recordEvent('tokens.purchase_started', auth.key, {
-          stripeSessionId: session.id,
-          packId: pack.id,
-          amount: pack.unitAmount,
-          tokens: pack.tokens,
-        });
-        json(200, { url: session.url });
-      } catch (error) {
-        json(502, { error: error.message || 'Unable to start checkout' });
-      }
-    });
-    return;
-  }
-
   // ── POST /api/rewards/redeem ─────────────────────────────────────────────
   if (pathname === '/api/rewards/redeem' && req.method === 'POST') {
     const auth = authenticatedUser(req);
@@ -383,6 +224,34 @@ const httpServer = http.createServer((req, res) => {
       if (result.error) return json(400, { error: result.error });
       json(200, result);
     });
+    return;
+  }
+
+  // â”€â”€ Player rewards catalog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  if (pathname === '/api/rewards/catalog' && req.method === 'GET') {
+    const auth = authenticatedUser(req);
+    json(200, {
+      rewards: database.listCatalogRewards(),
+      tokens: auth ? auth.user.tokens : null,
+      redemptions: auth ? database.listUserRewardRedemptions(auth.key) : [],
+    });
+    return;
+  }
+
+  const catalogRedeemMatch = pathname.match(/^\/api\/rewards\/catalog\/([0-9a-f-]+)\/redeem$/i);
+  if (catalogRedeemMatch && req.method === 'POST') {
+    const auth = authenticatedUser(req);
+    if (!auth) return json(401, { error: 'Not authenticated' });
+    const result = database.redeemCatalogReward(catalogRedeemMatch[1], auth.key);
+    if (result.error) return json(400, { error: result.error });
+    json(200, result);
+    return;
+  }
+
+  if (pathname === '/api/rewards/history' && req.method === 'GET') {
+    const auth = authenticatedUser(req);
+    if (!auth) return json(401, { error: 'Not authenticated' });
+    json(200, { redemptions: database.listUserRewardRedemptions(auth.key) });
     return;
   }
 
@@ -401,7 +270,9 @@ const httpServer = http.createServer((req, res) => {
     user.tokens += DAILY_BONUS;
     user.lastDailyBonus = now;
     user.updatedAt = new Date().toISOString();
-    database.recordEvent('tokens.daily_bonus', key, { amount: DAILY_BONUS, balance: user.tokens });
+    database.recordEvent('tokens.daily_bonus', key, { amount: DAILY_BONUS, balance: user.tokens }, false);
+    database.recordTokenTransaction(key, 'daily_bonus', DAILY_BONUS, user.tokens, {}, false);
+    database.save();
     json(200, { tokensAdded: DAILY_BONUS, tokens: user.tokens });
     return;
   }
@@ -432,9 +303,14 @@ const httpServer = http.createServer((req, res) => {
         totalTokens: allUsers.reduce((sum, user) => sum + (user.tokens || 0), 0),
         activeSessions: allUsers.reduce((sum, user) => sum + (user.meta?.activeSessions || 0), 0),
         activeRewards: Object.values(database.data.rewards || {}).filter(reward => reward.active).length,
+        catalogRewards: Object.values(database.data.catalogRewards || {}).filter(reward => !reward.archived).length,
+        pendingRewardRedemptions: (database.data.rewardRedemptions || []).filter(item => item.status === 'pending').length,
       },
       users: allUsers.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
       rewards: database.listRewards(),
+      catalogRewards: database.listCatalogRewards({ includeInactive: true, includeArchived: true, admin: true }),
+      rewardRedemptions: database.listAdminRewardRedemptions().slice(0, 200),
+      transactions: (database.data.transactions || []).slice(0, 200),
       games: database.data.games.slice(0, 100),
       events: database.data.events.slice(0, 200),
       liveRooms,
@@ -468,6 +344,58 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === '/api/admin/catalog-rewards' && req.method === 'POST') {
+    const auth = authenticatedUser(req);
+    if (!auth) return json(401, { error: 'Not authenticated' });
+    if (auth.user.role !== 'admin') return json(403, { error: 'Administrator access required' });
+    readBody(req, data => {
+      if (!data) return json(400, { error: 'Bad request' });
+      const created = database.createCatalogReward(data, auth.user.username);
+      if (created.error) return json(400, { error: created.error });
+      database.recordEvent('admin.catalog_reward_created', auth.key, {
+        rewardId: created.reward.id,
+        title: created.reward.title,
+        tokenCost: created.reward.tokenCost,
+      });
+      json(201, { reward: database.adminCatalogReward(created.reward) });
+    });
+    return;
+  }
+
+  const adminCatalogMatch = pathname.match(/^\/api\/admin\/catalog-rewards\/([0-9a-f-]+)$/i);
+  if (adminCatalogMatch && req.method === 'PATCH') {
+    const auth = authenticatedUser(req);
+    if (!auth) return json(401, { error: 'Not authenticated' });
+    if (auth.user.role !== 'admin') return json(403, { error: 'Administrator access required' });
+    readBody(req, data => {
+      if (!data) return json(400, { error: 'Bad request' });
+      const updated = database.updateCatalogReward(adminCatalogMatch[1], data);
+      if (updated.error) return json(400, { error: updated.error });
+      database.recordEvent('admin.catalog_reward_updated', auth.key, {
+        rewardId: updated.reward.id,
+        title: updated.reward.title,
+        active: updated.reward.active,
+        archived: updated.reward.archived,
+      });
+      json(200, { reward: database.adminCatalogReward(updated.reward) });
+    });
+    return;
+  }
+
+  const adminRedemptionMatch = pathname.match(/^\/api\/admin\/reward-redemptions\/([0-9a-f-]+)$/i);
+  if (adminRedemptionMatch && req.method === 'PATCH') {
+    const auth = authenticatedUser(req);
+    if (!auth) return json(401, { error: 'Not authenticated' });
+    if (auth.user.role !== 'admin') return json(403, { error: 'Administrator access required' });
+    readBody(req, data => {
+      if (!data) return json(400, { error: 'Bad request' });
+      const updated = database.updateRewardRedemptionStatus(adminRedemptionMatch[1], data, auth.key);
+      if (updated.error) return json(400, { error: updated.error });
+      json(200, { redemption: database.adminRewardRedemption(updated.redemption) });
+    });
+    return;
+  }
+
   const adminUserMatch = pathname.match(/^\/api\/admin\/users\/([0-9a-f-]+)$/i);
   if (adminUserMatch && req.method === 'PATCH') {
     const auth = authenticatedUser(req);
@@ -477,12 +405,17 @@ const httpServer = http.createServer((req, res) => {
     if (!found) return json(404, { error: 'User not found' });
     readBody(req, data => {
       if (!data) return json(400, { error: 'Bad request' });
+      const oldTokens = found.user.tokens;
       if (data.tokens !== undefined) {
         const tokens = Number(data.tokens);
         if (!Number.isInteger(tokens) || tokens < 0 || tokens > 1000000000) {
           return json(400, { error: 'Tokens must be a whole number from 0 to 1,000,000,000' });
         }
         found.user.tokens = tokens;
+        database.recordTokenTransaction(found.key, 'admin_adjustment', tokens - oldTokens, found.user.tokens, {
+          adminUserId: auth.user.id,
+          adminUsername: auth.user.username,
+        }, false);
       }
       if (data.status !== undefined) {
         if (!['active', 'disabled'].includes(data.status)) return json(400, { error: 'Invalid status' });
@@ -577,6 +510,11 @@ function startGameRecord(room, mode) {
 
 function makeCode() {
   return Math.random().toString(36).slice(2,6).toUpperCase();
+}
+
+function guestName(value) {
+  const clean = String(value || '').trim().replace(/[^\w -]/g, '').slice(0, 18);
+  return clean || `Guest${makeCode()}`;
 }
 
 function broadcast(room, msg) {
@@ -710,6 +648,17 @@ function createRoom(code, hostClient, startTokens) {
 
 function getPlayer(room, id) { return room.players.find(p => p.id === id); }
 
+function recordPlayerTokenTransaction(room, playerId, type, amount, balanceAfter, details = {}) {
+  if (!room || room.isSinglePlayer) return;
+  const client = room.clients.find(c => c.id === playerId);
+  if (!client || !client.userKey) return;
+  database.recordTokenTransaction(client.userKey, type, amount, balanceAfter, {
+    roomCode: room.code,
+    round: room.round,
+    ...details,
+  });
+}
+
 function isHandFull(p) {
   const q = (p.qualifyHand.includes(1)?0:1)+(p.qualifyHand.includes(4)?0:1);
   return q + (4 - p.scoringHand.length) === 0;
@@ -747,6 +696,7 @@ function startRound(room) {
     p.selectedIdx = []; p.lastDiceAttempted = false; p.pendingAutoFold = false;
     const ante = Math.min(ANTE, p.tokens);
     p.tokens -= ante; p.roundBet += ante; room.pot += ante;
+    recordPlayerTokenTransaction(room, p.id, 'game_entry_cost', -ante, p.tokens, { pot: room.pot });
   });
 
   room.turnPlayerId = active[0].id;
@@ -862,6 +812,7 @@ function rollDice(room, playerId) {
   if (total === 1) p.lastDiceAttempted = true;
 
   p.tokens -= ROLL_COST; room.pot += ROLL_COST;
+  recordPlayerTokenTransaction(room, playerId, 'dice_roll_cost', -ROLL_COST, p.tokens, { pot: room.pot });
   p.rollsUsed++;
   p.currentDice        = Array.from({ length: total }, () => Math.floor(Math.random()*6)+1);
   p.selectedIdx        = [];
@@ -1077,10 +1028,12 @@ function placeBet(room, playerId, action, amount) {
   } else if (action === 'call') {
     const c = Math.min(callAmt, p.tokens);
     p.tokens -= c; p.roundBet += c; room.pot += c;
+    if (c > 0) recordPlayerTokenTransaction(room, playerId, 'bet', -c, p.tokens, { action, pot: room.pot });
   } else if (action === 'raise') {
     const pay = Math.min(amount, p.tokens);
     p.tokens -= pay; p.roundBet += pay; room.pot += pay;
     room.currentBet = Math.max(room.currentBet, p.roundBet);
+    if (pay > 0) recordPlayerTokenTransaction(room, playerId, 'bet', -pay, p.tokens, { action, pot: room.pot });
   }
   // check: no token change
   broadcast(room, roomSnapshot(room));
@@ -1144,7 +1097,10 @@ function resolveRound(room) {
     const best = eligible[0].finalScore;
     winners = eligible.filter(p => p.finalScore === best);
     const share = Math.floor(room.pot / winners.length);
-    winners.forEach(p => { p.tokens += share; });
+    winners.forEach(p => {
+      p.tokens += share;
+      recordPlayerTokenTransaction(room, p.id, 'win', share, p.tokens, { pot: room.pot, winners: winners.length });
+    });
   }
 
   broadcast(room, {
@@ -1225,11 +1181,10 @@ wss.on('connection', ws => {
 
       case 'create_room': {
         const authUser = websocketUser(msg.sessionToken);
-        if (!authUser) { sendTo(client, { type:'error', msg:'Please sign in again' }); break; }
-        const uKey     = authUser.key;
-        const acct     = authUser.user;
-        const name     = acct.username;
-        const startTok = Math.max(acct.tokens, 100);
+        const uKey     = authUser ? authUser.key : null;
+        const acct     = authUser ? authUser.user : null;
+        const name     = acct ? acct.username : guestName(msg.name);
+        const startTok = acct ? Math.max(acct.tokens, 100) : 500;
         const vsComp   = !!msg.vsComputer;
 
         const code = makeCode();
@@ -1250,7 +1205,7 @@ wss.on('connection', ws => {
         });
         sendTo(client, { type:'room_created', code, playerId: client.id, isSinglePlayer: vsComp });
         broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color,isAI:p.isAI||false})) });
-        database.recordEvent('room.created', uKey, { roomCode: code, mode: vsComp ? 'practice' : 'multiplayer' });
+        database.recordEvent('room.created', uKey, { roomCode: code, mode: vsComp ? 'practice' : 'multiplayer', guest: !acct });
 
         if (vsComp) {
           // Add AI opponent and start immediately
@@ -1280,11 +1235,10 @@ wss.on('connection', ws => {
         if (room.isSinglePlayer) { sendTo(client, { type:'error', msg:'That is a private practice game' }); break; }
 
         const authUser = websocketUser(msg.sessionToken);
-        if (!authUser) { sendTo(client, { type:'error', msg:'Please sign in again' }); break; }
-        const uKey     = authUser.key;
-        const acct     = authUser.user;
-        const name     = acct.username;
-        const startTok = Math.max(acct.tokens, 100);
+        const uKey     = authUser ? authUser.key : null;
+        const acct     = authUser ? authUser.user : null;
+        const name     = acct ? acct.username : guestName(msg.name);
+        const startTok = acct ? Math.max(acct.tokens, 100) : 500;
 
         client.roomCode = room.code;
         client.name     = name;
@@ -1320,7 +1274,7 @@ wss.on('connection', ws => {
           sendTo(client, { type:'room_joined', code: room.code, playerId: client.id });
           broadcast(room, { type:'player_joined', players: room.players.map(p=>({id:p.id,name:p.name,color:p.color,isAI:p.isAI||false})) });
         }
-        database.recordEvent('room.joined', uKey, { roomCode: room.code, pending: room.started });
+        database.recordEvent('room.joined', uKey, { roomCode: room.code, pending: room.started, guest: !acct });
         break;
       }
 

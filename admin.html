@@ -45,6 +45,7 @@
       <nav class="tabs" aria-label="Dashboard sections">
         <button class="tab active" data-panel="usersPanel">Users</button>
         <button class="tab" data-panel="rewardsPanel">Rewards</button>
+        <button class="tab" data-panel="transactionsPanel">Transactions</button>
         <button class="tab" data-panel="gamesPanel">Games</button>
         <button class="tab" data-panel="activityPanel">Activity</button>
         <button class="tab" data-panel="roomsPanel">Live rooms</button>
@@ -63,7 +64,42 @@
       </section>
 
       <section id="rewardsPanel" class="panel" hidden>
-        <div class="panel-heading"><div><h2>Rewards</h2><p>Create reward codes players can redeem for tokens</p></div></div>
+        <div class="panel-heading"><div><h2>Rewards</h2><p>Create spendable catalog rewards and optional bonus codes</p></div></div>
+        <div class="subpanel-heading"><h3>Reward catalog</h3><p>Players spend tokens on these rewards from the in-game Rewards Store.</p></div>
+        <form id="catalogRewardForm" class="admin-form catalog-form">
+          <input id="catalogRewardId" type="hidden">
+          <label for="catalogTitle">Title</label>
+          <input id="catalogTitle" name="title" placeholder="VIP table pass" maxlength="90" required>
+          <label for="catalogTokenCost">Token cost</label>
+          <input id="catalogTokenCost" name="tokenCost" type="number" min="1" max="1000000000" step="1" value="1000" required>
+          <label for="catalogQuantity">Quantity</label>
+          <input id="catalogQuantity" name="quantity" type="number" min="0" max="1000000" step="1" value="10" required>
+          <label for="catalogImageUrl">Image URL</label>
+          <input id="catalogImageUrl" name="imageUrl" placeholder="assets/reward.png or https://...">
+          <label for="catalogDescription">Description</label>
+          <input id="catalogDescription" name="description" placeholder="What the player receives">
+          <label for="catalogInstructions">Fulfilment instructions</label>
+          <input id="catalogInstructions" name="instructions" placeholder="How the owner fulfils this reward">
+          <label class="checkbox-line" for="catalogActive">
+            <input id="catalogActive" name="active" type="checkbox" checked>
+            Active
+          </label>
+          <button type="submit" id="catalogSubmitBtn">Save reward</button>
+          <button type="button" id="catalogCancelEdit" class="secondary">Clear</button>
+          <p id="catalogRewardMessage" class="form-message" role="status"></p>
+        </form>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Reward</th><th>Cost</th><th>Stock</th><th>Status</th><th>Updated</th><th>Actions</th></tr></thead>
+          <tbody id="catalogRewardsTable"></tbody>
+        </table></div>
+
+        <div class="subpanel-heading"><h3>Catalog redemptions</h3><p>Approve, fulfil, reject, or cancel player reward requests.</p></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Requested</th><th>Player</th><th>Reward</th><th>Cost</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="catalogRedemptionsTable"></tbody>
+        </table></div>
+
+        <div class="subpanel-heading"><h3>Bonus codes</h3><p>Create reward codes players can redeem for extra tokens.</p></div>
         <form id="rewardCreateForm" class="admin-form">
           <label for="rewardCode">Code</label>
           <input id="rewardCode" name="code" placeholder="LAUNCH1000" maxlength="40" required>
@@ -89,6 +125,14 @@
         <div class="table-wrap"><table>
           <thead><tr><th>Started</th><th>Room</th><th>Mode</th><th>Status</th><th>Players</th><th>Rounds</th><th>Total pot</th></tr></thead>
           <tbody id="gamesTable"></tbody>
+        </table></div>
+      </section>
+
+      <section id="transactionsPanel" class="panel" hidden>
+        <div class="panel-heading"><div><h2>Token transactions</h2><p>Backend-recorded balance changes for rewards, games, and admin adjustments</p></div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Time</th><th>Type</th><th>User</th><th>Amount</th><th>Balance after</th><th>Details</th></tr></thead>
+          <tbody id="transactionsTable"></tbody>
         </table></div>
       </section>
 

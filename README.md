@@ -18,22 +18,9 @@ Open `http://localhost:3000` for the game or `http://localhost:3000/admin.html` 
 
 User accounts, sessions, activity, game history, and balances are stored in `data/database.json`. The `data` directory is ignored by Git so production user data is never committed. Set `DATA_DIR` to store the database on a persistent server disk outside the repository.
 
-## Payments and rewards
+## Rewards
 
-Token purchases use Stripe Checkout when these environment variables are set:
-
-```powershell
-$env:STRIPE_SECRET_KEY="sk_live_or_test_..."
-$env:STRIPE_WEBHOOK_SECRET="whsec_..."
-$env:PUBLIC_URL="https://your-domain.com"
-$env:FORCE_HTTPS="true"
-```
-
-Configure Stripe to send `checkout.session.completed` webhooks to:
-
-```text
-https://your-domain.com/api/stripe/webhook
-```
+This hosted build does not require a payment API. Token purchases are disabled by default, and the game can run with only local accounts, room play, admin tools, and reward codes.
 
 Admins can create token reward codes from `http://localhost:3000/admin.html` under the Rewards tab. Signed-in players can redeem those codes from the game lobby.
 

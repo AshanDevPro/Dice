@@ -68,7 +68,9 @@ function renderDashboard(data) {
     ['Games saved', data.summary.totalGames],
     ['Live rooms', data.summary.liveRooms],
     ['Tokens in circulation', data.summary.totalTokens],
-    ['Active rewards', data.summary.activeRewards],
+    ['Bonus codes', data.summary.activeRewards],
+    ['Catalog rewards', data.summary.catalogRewards],
+    ['Pending redemptions', data.summary.pendingRewardRedemptions],
   ];
   byId('summaryCards').innerHTML = cards.map(([label, value]) =>
     `<article class="summary-card"><span class="value">${formatNumber(value)}</span><span class="label">${escapeHtml(label)}</span></article>`
@@ -77,7 +79,10 @@ function renderDashboard(data) {
     selectedUserId = data.users[0]?.id || null;
   }
   renderUsers(data.users);
+  renderCatalogRewards(data.catalogRewards || []);
+  renderCatalogRedemptions(data.rewardRedemptions || []);
   renderRewards(data.rewards || []);
+  renderTransactions(data.transactions || []);
   renderGames(data.games);
   renderEvents(data.events);
   renderRooms(data.liveRooms);
@@ -253,11 +258,65 @@ function renderRewards(rewards) {
     : '<tr><td colspan="7" class="empty">No reward codes created yet</td></tr>';
 }
 
+function renderCatalogRewards(rewards) {
+  const table = byId('catalogRewardsTable');
+  if (!table) return;
+  table.innerHTML = rewards.length ? rewards.map(reward => `
+    <tr>
+      <td><div class="user-name">${escapeHtml(reward.title)}</div><div class="user-email">${escapeHtml(reward.description || 'No description')}</div></td>
+      <td>${formatNumber(reward.tokenCost)}</td>
+      <td>${formatNumber(reward.redeemedCount)} / ${formatNumber(reward.quantity)} (${formatNumber(reward.available)} left)</td>
+      <td><span class="pill ${reward.archived ? 'disabled' : reward.active ? 'active' : ''}">${reward.archived ? 'archived' : reward.active ? 'active' : 'inactive'}</span></td>
+      <td>${escapeHtml(formatDate(reward.updatedAt || reward.createdAt))}</td>
+      <td><div class="row-actions">
+        <button data-catalog-id="${reward.id}" data-action="edit">Edit</button>
+        <button data-catalog-id="${reward.id}" data-action="toggle">${reward.active ? 'Deactivate' : 'Activate'}</button>
+        <button class="disable" data-catalog-id="${reward.id}" data-action="archive">Archive</button>
+      </div></td>
+    </tr>`).join('')
+    : '<tr><td colspan="6" class="empty">No catalog rewards created yet</td></tr>';
+}
+
+function renderCatalogRedemptions(redemptions) {
+  const table = byId('catalogRedemptionsTable');
+  if (!table) return;
+  table.innerHTML = redemptions.length ? redemptions.map(redemption => `
+    <tr>
+      <td>${escapeHtml(formatDate(redemption.requestedAt))}</td>
+      <td>${escapeHtml(redemption.username)}</td>
+      <td><div class="user-name">${escapeHtml(redemption.rewardTitle)}</div><div class="user-email">${escapeHtml(redemption.id)}</div></td>
+      <td>${formatNumber(redemption.tokenCost)}</td>
+      <td><span class="pill ${redemption.status === 'fulfilled' || redemption.status === 'approved' ? 'active' : redemption.status === 'rejected' || redemption.status === 'cancelled' ? 'disabled' : ''}">${escapeHtml(redemption.status)}</span></td>
+      <td><div class="row-actions">
+        <button data-redemption-id="${redemption.id}" data-status="approved">Approve</button>
+        <button data-redemption-id="${redemption.id}" data-status="fulfilled">Fulfil</button>
+        <button class="disable" data-redemption-id="${redemption.id}" data-status="rejected">Reject</button>
+        <button class="disable" data-redemption-id="${redemption.id}" data-status="cancelled">Cancel</button>
+      </div></td>
+    </tr>`).join('')
+    : '<tr><td colspan="6" class="empty">No catalog redemptions yet</td></tr>';
+}
+
 function renderEvents(events) {
   byId('eventsTable').innerHTML = events.length ? events.map(event => `
     <tr><td>${escapeHtml(formatDate(event.createdAt))}</td><td>${escapeHtml(event.type)}</td><td>${escapeHtml(event.username)}</td>
     <td class="details" title="${escapeHtml(JSON.stringify(event.details))}">${escapeHtml(JSON.stringify(event.details))}</td></tr>`).join('')
     : '<tr><td colspan="4" class="empty">No activity recorded yet</td></tr>';
+}
+
+function renderTransactions(transactions) {
+  const table = byId('transactionsTable');
+  if (!table) return;
+  table.innerHTML = transactions.length ? transactions.map(tx => `
+    <tr>
+      <td>${escapeHtml(formatDate(tx.createdAt))}</td>
+      <td><span class="pill">${escapeHtml(tx.type)}</span></td>
+      <td>${escapeHtml(tx.username)}</td>
+      <td>${Number(tx.amount || 0) > 0 ? '+' : ''}${formatNumber(tx.amount)}</td>
+      <td>${formatNumber(tx.balanceAfter)}</td>
+      <td class="details" title="${escapeHtml(JSON.stringify(tx.details || {}))}">${escapeHtml(JSON.stringify(tx.details || {}))}</td>
+    </tr>`).join('')
+    : '<tr><td colspan="6" class="empty">No token transactions recorded yet</td></tr>';
 }
 
 function renderRooms(rooms) {
@@ -298,6 +357,116 @@ byId('adminLogout').addEventListener('click', async () => {
 });
 byId('refreshDashboard').addEventListener('click', loadDashboard);
 byId('userSearch').addEventListener('input', () => dashboardData && renderUsers(dashboardData.users));
+
+function catalogPayload() {
+  return {
+    title: byId('catalogTitle').value.trim(),
+    tokenCost: Number(byId('catalogTokenCost').value),
+    quantity: Number(byId('catalogQuantity').value),
+    imageUrl: byId('catalogImageUrl').value.trim(),
+    description: byId('catalogDescription').value.trim(),
+    instructions: byId('catalogInstructions').value.trim(),
+    active: byId('catalogActive').checked,
+  };
+}
+
+function resetCatalogForm() {
+  byId('catalogRewardId').value = '';
+  byId('catalogRewardForm').reset();
+  byId('catalogTokenCost').value = '1000';
+  byId('catalogQuantity').value = '10';
+  byId('catalogActive').checked = true;
+  byId('catalogSubmitBtn').textContent = 'Save reward';
+  byId('catalogRewardMessage').textContent = '';
+  byId('catalogRewardMessage').classList.remove('error');
+}
+
+byId('catalogRewardForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const id = byId('catalogRewardId').value;
+  const submit = byId('catalogSubmitBtn');
+  const message = byId('catalogRewardMessage');
+  submit.disabled = true;
+  message.textContent = '';
+  message.classList.remove('error');
+  try {
+    const data = await api(id ? `/api/admin/catalog-rewards/${id}` : '/api/admin/catalog-rewards', {
+      method: id ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(catalogPayload()),
+    });
+    message.textContent = `Saved reward ${data.reward.title}.`;
+    resetCatalogForm();
+    await loadDashboard();
+  } catch (error) {
+    message.textContent = error.message;
+    message.classList.add('error');
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+byId('catalogCancelEdit').addEventListener('click', resetCatalogForm);
+
+byId('catalogRewardsTable').addEventListener('click', async event => {
+  const button = event.target.closest('button[data-catalog-id]');
+  if (!button || !dashboardData) return;
+  const reward = (dashboardData.catalogRewards || []).find(item => item.id === button.dataset.catalogId);
+  if (!reward) return;
+
+  if (button.dataset.action === 'edit') {
+    byId('catalogRewardId').value = reward.id;
+    byId('catalogTitle').value = reward.title || '';
+    byId('catalogTokenCost').value = reward.tokenCost || 1;
+    byId('catalogQuantity').value = reward.quantity || 0;
+    byId('catalogImageUrl').value = reward.imageUrl || '';
+    byId('catalogDescription').value = reward.description || '';
+    byId('catalogInstructions').value = reward.instructions || '';
+    byId('catalogActive').checked = !!reward.active;
+    byId('catalogSubmitBtn').textContent = 'Update reward';
+    byId('catalogTitle').focus();
+    return;
+  }
+
+  const patch = button.dataset.action === 'archive'
+    ? { archived: true }
+    : { active: !reward.active };
+  if (button.dataset.action === 'archive' && !window.confirm(`Archive ${reward.title}?`)) return;
+  button.disabled = true;
+  try {
+    await api(`/api/admin/catalog-rewards/${reward.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    await loadDashboard();
+  } catch (error) {
+    window.alert(error.message);
+    button.disabled = false;
+  }
+});
+
+byId('catalogRedemptionsTable').addEventListener('click', async event => {
+  const button = event.target.closest('button[data-redemption-id]');
+  if (!button) return;
+  const status = button.dataset.status;
+  const note = ['fulfilled', 'rejected', 'cancelled'].includes(status)
+    ? window.prompt('Optional fulfilment note:', '') || ''
+    : '';
+  if (['rejected', 'cancelled'].includes(status) && !window.confirm(`${status} this redemption? Tokens will be refunded.`)) return;
+  button.disabled = true;
+  try {
+    await api(`/api/admin/reward-redemptions/${button.dataset.redemptionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, fulfilmentNote: note }),
+    });
+    await loadDashboard();
+  } catch (error) {
+    window.alert(error.message);
+    button.disabled = false;
+  }
+});
 
 byId('rewardCreateForm').addEventListener('submit', async event => {
   event.preventDefault();

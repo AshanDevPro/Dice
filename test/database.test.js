@@ -97,3 +97,43 @@ test('registration role is player unless trusted server code explicitly sets adm
   assert.equal(player.user.role, 'player');
   assert.equal(admin.user.role, 'admin');
 });
+
+test('catalog rewards deduct tokens, reserve stock, and record transactions', t => {
+  const database = temporaryDatabase(t);
+  const created = database.createUser({ username: 'RewardUser', email: 'reward@example.com', password: 'reward-password' });
+  const reward = database.createCatalogReward({
+    title: 'VIP Pass',
+    description: 'One test reward',
+    tokenCost: 250,
+    quantity: 2,
+    instructions: 'Mark fulfilled after sending',
+    active: true,
+  }, 'AdminUser');
+
+  assert.equal(reward.error, undefined);
+  const redeemed = database.redeemCatalogReward(reward.reward.id, created.key);
+
+  assert.equal(redeemed.error, undefined);
+  assert.equal(redeemed.tokens, 250);
+  assert.equal(redeemed.reward.available, 1);
+  assert.equal(redeemed.redemption.status, 'pending');
+  assert.equal(database.data.transactions[0].type, 'reward_redemption');
+  assert.equal(database.data.transactions[0].amount, -250);
+});
+
+test('rejected catalog redemptions refund tokens and cannot be reopened', t => {
+  const database = temporaryDatabase(t);
+  const created = database.createUser({ username: 'RefundUser', email: 'refund@example.com', password: 'refund-password' });
+  const reward = database.createCatalogReward({
+    title: 'Refund Prize',
+    tokenCost: 300,
+    quantity: 1,
+  }, 'AdminUser');
+  const redeemed = database.redeemCatalogReward(reward.reward.id, created.key);
+  const rejected = database.updateRewardRedemptionStatus(redeemed.redemption.id, { status: 'rejected' }, null);
+
+  assert.equal(rejected.error, undefined);
+  assert.equal(created.user.tokens, 500);
+  assert.equal(database.data.catalogRewards[reward.reward.id].redeemedCount, 0);
+  assert.equal(database.updateRewardRedemptionStatus(redeemed.redemption.id, { status: 'approved' }).error, 'Refunded redemptions cannot be reopened');
+});

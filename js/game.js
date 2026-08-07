@@ -37,10 +37,14 @@ const BLANK_DIE_URL = "data:image/svg+xml," + encodeURIComponent(
   `<text x="50" y="66" font-size="40" text-anchor="middle" fill="#bd895a" font-family="monospace">?</text></svg>`
 );
 
+const DICE_IMAGE_PATH = 'assets/dice/dice_';
+
 function setDieImg(el, value, selected, locked) {
-  el.style.backgroundImage = value
-    ? `url('${getDiceSVG(value, selected, locked)}')`
-    : `url("${BLANK_DIE_URL}")`;
+  if (value) {
+    el.style.backgroundImage = `url("${DICE_IMAGE_PATH}${value}.png")`;
+    return;
+  }
+  el.style.backgroundImage = `url("${BLANK_DIE_URL}")`;
 }
 
 // ══════════════════════════════════════════

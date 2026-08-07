@@ -23,6 +23,75 @@ document.addEventListener('visibilitychange', () => {
 const _wsProto   = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const _wsDefault = _wsProto + '//' + window.location.host;
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[ch]));
+}
+
+function themeIcon(label) {
+  return '<span class="theme-icon" aria-hidden="true">' + escapeHtml(label) + '</span>';
+}
+
+function showThemeDialog(options = {}) {
+  const modal = document.getElementById('themeMessageModal');
+  const titleEl = document.getElementById('themeMessageTitle');
+  const bodyEl = document.getElementById('themeMessageBody');
+  const iconEl = document.getElementById('themeMessageIcon');
+  const actionsEl = document.getElementById('themeMessageActions');
+  const confirmBtn = document.getElementById('themeMessageConfirm');
+  const cancelBtn = document.getElementById('themeMessageCancel');
+  if (!modal || !titleEl || !bodyEl || !confirmBtn || !cancelBtn) {
+    return Promise.resolve(true);
+  }
+
+  const hasCancel = options.cancelText !== null;
+  titleEl.textContent = options.title || 'Game Message';
+  bodyEl.textContent = options.message || '';
+  if (iconEl) iconEl.textContent = options.icon || 'D6';
+  confirmBtn.textContent = options.confirmText || 'OK';
+  cancelBtn.textContent = options.cancelText || 'Cancel';
+  cancelBtn.style.display = hasCancel ? '' : 'none';
+  if (actionsEl) actionsEl.classList.toggle('single', !hasCancel);
+  modal.hidden = false;
+  confirmBtn.focus();
+
+  return new Promise(resolve => {
+    const close = result => {
+      modal.hidden = true;
+      confirmBtn.onclick = null;
+      cancelBtn.onclick = null;
+      modal.onclick = null;
+      document.removeEventListener('keydown', onKeyDown);
+      resolve(result);
+    };
+    const onKeyDown = event => {
+      if (event.key === 'Escape') close(false);
+      if (event.key === 'Enter') close(true);
+    };
+    confirmBtn.onclick = () => close(true);
+    cancelBtn.onclick = () => close(false);
+    modal.onclick = event => {
+      if (event.target === modal && hasCancel) close(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+  });
+}
+
+function showThemeAlert(message, options = {}) {
+  return showThemeDialog({
+    title: options.title || 'Table Notice',
+    message,
+    icon: options.icon || 'D6',
+    confirmText: options.confirmText || 'OK',
+    cancelText: null,
+  });
+}
+
 function normalizeWebSocketUrl(value) {
   const raw = String(value || '').trim();
   if (!raw) return _wsDefault;
@@ -63,24 +132,43 @@ const auth = {
   tokens:       null,
 };
 
+function normalizeRoomCode(value) {
+  const code = String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+  return code.length === 4 ? code : '';
+}
+
+const pendingInviteCode = normalizeRoomCode(new URLSearchParams(window.location.search).get('room'));
+let attemptedInviteCode = null;
+
 // ── Sound toggle ──────────────────────────────────────────────────────────────
 function toggleSoundBtn() {
   if (!window.SFX) return;
-  const muted = window.SFX.toggleMute();
+  const muted = window.SFX.toggleEffects ? window.SFX.toggleEffects() : window.SFX.toggleMute();
   updateSoundControls();
   if (!muted && window.SFX.yourTurn) {
-    window.SFX.startBackground?.();
     window.SFX.yourTurn();
   }
 }
 
+function toggleMusicBtn() {
+  if (!window.SFX) return;
+  window.SFX.toggleMusic ? window.SFX.toggleMusic() : window.SFX.toggleMute();
+  updateSoundControls();
+}
+
 function updateSoundControls() {
   const btn = document.getElementById('menuSoundBtn');
+  const musicBtn = document.getElementById('menuMusicBtn');
   if (!window.SFX) return;
-  const muted = window.SFX.isMuted();
+  const muted = window.SFX.isEffectsMuted ? window.SFX.isEffectsMuted() : window.SFX.isMuted();
+  const musicMuted = window.SFX.isMusicMuted ? window.SFX.isMusicMuted() : window.SFX.isMuted();
   if (btn) {
-    btn.textContent = muted ? 'Unmute Audio' : 'Mute Audio';
+    btn.textContent = muted ? 'Sound Effects Off' : 'Sound Effects On';
     btn.setAttribute('aria-pressed', String(!muted));
+  }
+  if (musicBtn) {
+    musicBtn.textContent = musicMuted ? 'Music Off' : 'Music On';
+    musicBtn.setAttribute('aria-pressed', String(!musicMuted));
   }
   const slider = document.getElementById('menuVolumeRange');
   const value = document.getElementById('menuVolumeValue');
@@ -113,18 +201,18 @@ function authShowLobby() {
   // Show account badge
   updateAccountBadge();
   updateMenuState();
-  showPaymentReturnMessage();
   // Set server URL
   document.getElementById('lobbyServer').value = _wsDefault;
   // Auto-fill room code if arriving from a share link (?room=XXXX)
   const roomParam = new URLSearchParams(window.location.search).get('room');
   if (roomParam) {
     const codeEl = document.getElementById('lobbyCode');
-    if (codeEl) codeEl.value = roomParam.toUpperCase();
+    if (codeEl) codeEl.value = normalizeRoomCode(roomParam);
     document.getElementById('lobbyJoinRow').style.display = 'block';
     const manualRow = document.getElementById('manualCodeRow');
     if (manualRow) manualRow.style.display = 'block';
     fetchAndShowRooms();
+    setTimeout(maybeAutoJoinInvite, 250);
   }
 }
 
@@ -136,7 +224,7 @@ function updateAccountBadge() {
     return;
   }
   if (auth.username) {
-    if (text) text.textContent = '👤 ' + auth.username + ' — 💰 ' + (auth.tokens !== null ? auth.tokens : '—') + ' tokens';
+    if (text) text.innerHTML = themeIcon('P') + ' ' + escapeHtml(auth.username) + ' — ' + themeIcon('$') + ' ' + (auth.tokens !== null ? auth.tokens : '—') + ' tokens';
     badge.style.display = 'flex';
     badge.style.alignItems = 'center';
     badge.style.justifyContent = 'center';
@@ -148,21 +236,6 @@ function updateAccountBadge() {
     badge.style.display = 'none';
   }
   updateMenuState();
-}
-
-function showPaymentReturnMessage() {
-  const payment = new URLSearchParams(window.location.search).get('payment');
-  if (!payment) return;
-  const fbEl = document.getElementById('dailyBonusFeedback');
-  if (!fbEl) return;
-  if (payment === 'success') {
-    fbEl.textContent = 'Payment received. Tokens will appear after Stripe confirms the payment.';
-    fbEl.style.color = '#06d6a0';
-  } else if (payment === 'cancelled') {
-    fbEl.textContent = 'Checkout cancelled.';
-    fbEl.style.color = '#f59e1b';
-  }
-  setTimeout(() => { fbEl.textContent = ''; }, 8000);
 }
 
 async function claimDailyBonus() {
@@ -180,9 +253,9 @@ async function claimDailyBonus() {
       auth.tokens = data.tokens;
       updateAccountBadge();
       if (window.SFX) window.SFX.token();
-      if (fbEl) { fbEl.textContent = '✅ +' + data.tokensAdded + ' tokens claimed!'; fbEl.style.color = '#06d6a0'; }
+      if (fbEl) { fbEl.textContent = '+' + data.tokensAdded + ' tokens claimed!'; fbEl.style.color = '#ffd166'; }
     } else if (res.status === 429) {
-      if (fbEl) { fbEl.textContent = '⏳ Next bonus in ' + data.hoursLeft + 'h'; fbEl.style.color = '#f59e1b'; }
+      if (fbEl) { fbEl.textContent = 'Next bonus in ' + data.hoursLeft + 'h'; fbEl.style.color = '#f59e1b'; }
       if (btn) btn.disabled = false;
     } else {
       if (fbEl) { fbEl.textContent = data.error || 'Error'; fbEl.style.color = '#ff6b6b'; }
@@ -197,7 +270,7 @@ async function claimDailyBonus() {
 }
 
 async function authLogout() {
-  if (mp.roomCode && !confirmLeaveActiveRoom('Log out and leave the current game?')) return;
+  if (mp.roomCode && !(await confirmLeaveActiveRoom('Log out and leave the current game?'))) return;
   const oldToken = auth.sessionToken;
   auth.sessionToken = null;
   auth.username     = null;
@@ -211,7 +284,7 @@ async function authLogout() {
       headers: { 'Authorization': 'Bearer ' + oldToken },
     }).catch(() => {});
   }
-  leaveCurrentRoom({ confirm: false, closeSocket: true, resetLobby: false });
+  await leaveCurrentRoom({ confirm: false, closeSocket: true, resetLobby: false });
   setGameActive(false);
   closeGameMenu();
   document.getElementById('lobbyScreen').style.display = 'none';
@@ -246,6 +319,27 @@ async function authInit() {
 
 authInit();
 
+function selectedGameChoice() {
+  return document.querySelector('input[name="gameChoice"]:checked')?.value || 'onefourtwentyfour';
+}
+
+async function ensurePlayableGameChoice() {
+  if (selectedGameChoice() !== 'threesaway') return true;
+  await showThemeAlert("3's Away is coming soon. Choose 1-4-24 to play now.", {
+    title: 'Coming Soon',
+    icon: 'D6',
+  });
+  const defaultChoice = document.querySelector('input[name="gameChoice"][value="onefourtwentyfour"]');
+  if (defaultChoice) defaultChoice.checked = true;
+  return false;
+}
+
+document.querySelectorAll('input[name="gameChoice"]').forEach(input => {
+  input.addEventListener('change', () => {
+    if (input.checked && input.value === 'threesaway') ensurePlayableGameChoice();
+  });
+});
+
 // Tab switching
 document.getElementById('loginTabBtn').addEventListener('click', () => {
   document.getElementById('loginForm').style.display    = '';
@@ -264,9 +358,10 @@ document.getElementById('registerTabBtn').addEventListener('click', () => {
 
 // Login
 document.getElementById('loginBtn').addEventListener('click', async () => {
+  if (!(await ensurePlayableGameChoice())) return;
   const identifier = document.getElementById('loginIdentifier').value.trim();
   const password = document.getElementById('loginPassword').value;
-  if (!identifier || !password) { authShowError('Enter your email/username and password'); return; }
+  if (!identifier || !password) { authShowError('Enter your username and password'); return; }
   try {
     const res  = await fetch('/api/login', {
       method: 'POST',
@@ -287,6 +382,24 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
 });
 document.getElementById('loginPassword').addEventListener('keypress', e => {
   if (e.key === 'Enter') document.getElementById('loginBtn').click();
+});
+
+document.getElementById('guestBtn').addEventListener('click', async () => {
+  if (!(await ensurePlayableGameChoice())) return;
+  auth.sessionToken = null;
+  auth.username = null;
+  auth.email = null;
+  auth.role = null;
+  auth.tokens = null;
+  localStorage.removeItem('pignusDiceSession');
+  mp.myName = 'Guest' + Math.floor(1000 + Math.random() * 9000);
+  authShowLobby();
+  const nameEl = document.getElementById('lobbyName');
+  if (nameEl) {
+    nameEl.value = mp.myName;
+    nameEl.readOnly = false;
+    nameEl.style.opacity = '';
+  }
 });
 
 // Register
@@ -353,6 +466,41 @@ function toggleManualCode() {
   row.style.display = row.style.display === 'none' ? 'block' : 'none';
 }
 
+function prepareLobbyConnection() {
+  mp.myName = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
+  mp.serverUrl = normalizeWebSocketUrl(document.getElementById('lobbyServer').value);
+}
+
+function joinRoomByCode(code, options = {}) {
+  const roomCode = normalizeRoomCode(code);
+  if (mp.connecting) return false;
+  if (!roomCode) {
+    lobbyError('Enter a valid 4-character room code');
+    return false;
+  }
+  prepareLobbyConnection();
+  if (options.fromInvite) lobbyError('Joining invited room ' + roomCode + '...');
+  connectWS(() => {
+    mp.ws.send(JSON.stringify({
+      type: 'join_room',
+      code: roomCode,
+      name: mp.myName,
+      sessionToken: auth.sessionToken || null,
+    }));
+  });
+  return true;
+}
+
+function maybeAutoJoinInvite() {
+  if (!pendingInviteCode || attemptedInviteCode === pendingInviteCode || mp.roomCode || mp.connected || mp.connecting) return;
+  const lobby = document.getElementById('lobbyScreen');
+  if (!lobby || getComputedStyle(lobby).display === 'none') return;
+  attemptedInviteCode = pendingInviteCode;
+  const codeEl = document.getElementById('lobbyCode');
+  if (codeEl) codeEl.value = pendingInviteCode;
+  joinRoomByCode(pendingInviteCode, { fromInvite: true });
+}
+
 async function fetchAndShowRooms() {
   const listEl = document.getElementById('roomsList');
   if (!listEl) return;
@@ -362,7 +510,7 @@ async function fetchAndShowRooms() {
     const data = await res.json();
     const rooms = data.rooms || [];
     if (!rooms.length) {
-      listEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:0.82rem;padding:12px;">No rooms available — create one!</div>';
+      listEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:0.82rem;padding:12px;">No rooms available right now. Create a room to start a table.</div>';
       return;
     }
     listEl.innerHTML = '';
@@ -377,20 +525,12 @@ async function fetchAndShowRooms() {
       card.innerHTML =
         '<div class="room-browser-info">' +
           '<span class="room-browser-code">' + r.code + '</span>' +
-          '<span class="room-browser-players">👥 ' + totalPlayers + '/' + r.maxPlayers + '</span>' +
+          '<span class="room-browser-players">' + themeIcon('P') + ' ' + totalPlayers + '/' + r.maxPlayers + '</span>' +
           statusLabel +
         '</div>' +
         '<button class="room-browser-join-btn">' + btnLabel + '</button>';
       card.querySelector('.room-browser-join-btn').onclick = () => {
-        if (mp.connecting) return;
-        mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
-        mp.serverUrl = normalizeWebSocketUrl(document.getElementById('lobbyServer').value);
-        connectWS(() => {
-          mp.ws.send(JSON.stringify({
-            type: 'join_room', code: r.code, name: mp.myName,
-            sessionToken: auth.sessionToken || null,
-          }));
-        });
+        joinRoomByCode(r.code);
       };
       listEl.appendChild(card);
     });
@@ -399,30 +539,23 @@ async function fetchAndShowRooms() {
   }
 }
 
-document.getElementById('lobbyCreateBtn').addEventListener('click', () => {
-  if (mp.connecting) return;
-  mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
-  mp.serverUrl = normalizeWebSocketUrl(document.getElementById('lobbyServer').value);
-  connectWS(() => {
-    mp.ws.send(JSON.stringify({
-      type: 'create_room', name: mp.myName,
-      startTokens: 500, sessionToken: auth.sessionToken || null,
-    }));
+const lobbyCreateBtn = document.getElementById('lobbyCreateBtn');
+if (lobbyCreateBtn) {
+  lobbyCreateBtn.addEventListener('click', () => {
+    if (mp.connecting) return;
+    prepareLobbyConnection();
+    connectWS(() => {
+      mp.ws.send(JSON.stringify({
+        type: 'create_room', name: mp.myName,
+        startTokens: 500, sessionToken: auth.sessionToken || null,
+      }));
+    });
   });
-});
+}
 
 document.getElementById('lobbyJoinConfirmBtn').addEventListener('click', () => {
-  if (mp.connecting) return;
-  mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
-  mp.serverUrl = normalizeWebSocketUrl(document.getElementById('lobbyServer').value);
   const code   = document.getElementById('lobbyCode').value.trim().toUpperCase();
-  if (!code) { lobbyError('Enter a room code'); return; }
-  connectWS(() => {
-    mp.ws.send(JSON.stringify({
-      type: 'join_room', code, name: mp.myName,
-      sessionToken: auth.sessionToken || null,
-    }));
-  });
+  joinRoomByCode(code);
 });
 
 document.getElementById('lobbyStartBtn').addEventListener('click', () => {
@@ -431,8 +564,7 @@ document.getElementById('lobbyStartBtn').addEventListener('click', () => {
 
 document.getElementById('vsComputerBtn').addEventListener('click', () => {
   if (mp.connecting) return;
-  mp.myName    = auth.username || document.getElementById('lobbyName').value.trim() || 'Player';
-  mp.serverUrl = normalizeWebSocketUrl(document.getElementById('lobbyServer').value);
+  prepareLobbyConnection();
   connectWS(() => {
     mp.ws.send(JSON.stringify({
       type: 'create_room', name: mp.myName,
@@ -548,6 +680,7 @@ function handleServerMsg(msg) {
       mp.roomCode       = msg.code;
       mp.isHost         = true;
       mp.isSinglePlayer = !!msg.isSinglePlayer;
+      lobbyError('');
       showLobbyWaiting(msg.code, true, msg.isSinglePlayer);
       break;
 
@@ -555,12 +688,14 @@ function handleServerMsg(msg) {
       mp.myId     = msg.playerId;
       mp.roomCode = msg.code;
       mp.isHost   = false;
+      lobbyError('');
       showLobbyWaiting(msg.code, false);
       break;
 
     case 'waiting_for_round':
       mp.myId     = msg.playerId;
       mp.roomCode = msg.code;
+      lobbyError('');
       mp.isHost   = false;
       showLobbyWaiting(msg.code, false, false);
       document.getElementById('lobbyStatusMsg').textContent =
@@ -605,7 +740,7 @@ function handleServerMsg(msg) {
     case 'your_turn':
       if (msg.playerId === mp.myId) {
         if (msg.cantAffordRoll) {
-          showMsg("⚠️ Not enough tokens to roll! End your turn with your current hand.", 'warn');
+          showMsg("Not enough tokens to roll! End your turn with your current hand.", 'warn');
         } else {
           showMsg('Your turn! Roll the dice.');
         }
@@ -613,14 +748,14 @@ function handleServerMsg(msg) {
         if (window.SFX) window.SFX.yourTurn();
       } else {
         const isAI = mp.gameState && mp.gameState.players.find(p => p.id === msg.playerId)?.isAI;
-        showMsg(isAI ? '🤖 Computer is thinking...' : 'Waiting for ' + msg.playerName + ' to play...');
+        showMsg(isAI ? 'Computer is thinking...' : 'Waiting for ' + msg.playerName + ' to play...');
         setOnlineButtonsEnabled(false);
       }
       break;
 
     case 'bust':
       if (msg.playerId === mp.myId) {
-        showMsg("💸 Not enough tokens to roll and you haven't qualified — Auto-folding...", 'error');
+        showMsg("Not enough tokens to roll and you haven't qualified — Auto-folding...", 'error');
         if (window.SFX) window.SFX.roundLose();
       } else {
         showMsg(msg.playerName + " can't afford to roll — auto-folding.", 'warn');
@@ -640,7 +775,7 @@ function handleServerMsg(msg) {
 
     case 'phase_change':
       if (msg.subRound >= 2) {
-        showMsg('⚔️ SUB-ROUND ' + msg.subRound + ' — Roll your remaining dice!');
+        showMsg('SUB-ROUND ' + msg.subRound + ' — Roll your remaining dice!');
         if (window.SFX) window.SFX.phase2();
       }
       break;
@@ -684,6 +819,10 @@ function handleServerMsg(msg) {
       break;
 
     case 'error':
+      if (isVisible('lobbyScreen')) {
+        lobbyError(msg.msg);
+        attemptedInviteCode = null;
+      }
       showMsg(msg.msg, 'error');
       break;
   }
@@ -698,7 +837,7 @@ function showLobbyWaiting(code, isHost, isSinglePlayer) {
   document.getElementById('shareFeedback').textContent  = '';
   document.getElementById('shareRoomBtn').style.display = isSinglePlayer ? 'none' : '';
   document.getElementById('lobbyStatusMsg').textContent =
-    isSinglePlayer ? '🤖 Practice mode — starting shortly...'
+    isSinglePlayer ? 'Practice mode — starting shortly...'
     : isHost ? 'You are the host. Waiting for players to join...'
     : 'Joined! Waiting for host to start...';
 }
@@ -714,7 +853,7 @@ function shareRoomLink() {
     navigator.share({ title: 'PignusDice — Room ' + code, text, url }).catch(() => {});
   } else if (navigator.clipboard) {
     navigator.clipboard.writeText(url).then(() => {
-      fb.textContent = '✅ Link copied to clipboard!';
+      fb.textContent = 'Link copied to clipboard!';
       setTimeout(() => { fb.textContent = ''; }, 3000);
     }).catch(() => {
       fb.textContent = 'Link: ' + url;
@@ -807,7 +946,7 @@ function showShareFallback(feedbackEl, text, message) {
   field.select();
 }
 
-shareRoomLink = async function shareRoomLink(feedbackId = 'shareFeedback') {
+async function shareRoomLink(feedbackId = 'shareFeedback') {
   const payload = currentInvitePayload();
   const fb = document.getElementById(feedbackId) || document.getElementById('shareFeedback');
   if (fb) {
@@ -838,7 +977,7 @@ shareRoomLink = async function shareRoomLink(feedbackId = 'shareFeedback') {
       window.isSecureContext ? 'Copy this invite:' : 'Sharing is limited on HTTP. Copy this invite manually:'
     );
   }
-};
+}
 
 function isVisible(id) {
   const el = document.getElementById(id);
@@ -851,9 +990,15 @@ function confirmLeaveActiveRoom(message) {
   const activeGame = isVisible('gameScreen') && !gameOverVisible;
   const waitingRoom = isVisible('lobbyWaiting');
   if (!activeGame && !waitingRoom && !mp.roomCode) return true;
-  return window.confirm(message || (activeGame
-    ? 'Leave this active game and return to the lobby?'
-    : 'Leave this room and return to the lobby?'));
+  return showThemeDialog({
+    title: activeGame ? 'Leave The Table?' : 'Leave Room?',
+    message: message || (activeGame
+      ? 'Leave this active game and return to the lobby?'
+      : 'Leave this room and return to the lobby?'),
+    icon: activeGame ? 'D6' : 'POT',
+    confirmText: activeGame ? 'LEAVE GAME' : 'LEAVE ROOM',
+    cancelText: 'STAY',
+  });
 }
 
 function resetLobbyView() {
@@ -876,9 +1021,9 @@ function resetLobbyView() {
   closeGameMenu();
 }
 
-function leaveCurrentRoom(options = {}) {
+async function leaveCurrentRoom(options = {}) {
   const confirmFirst = options.confirm !== false;
-  if (confirmFirst && !confirmLeaveActiveRoom()) return false;
+  if (confirmFirst && !(await confirmLeaveActiveRoom())) return false;
   if (!options.alreadyDisconnected) {
     disconnectWS({ notifyServer: true });
   } else {
@@ -902,7 +1047,7 @@ function leaveCurrentRoom(options = {}) {
   return true;
 }
 
-function returnToLobby(options = {}) {
+async function returnToLobby(options = {}) {
   if (options && options.type) options = {};
   return leaveCurrentRoom(options);
 }
@@ -915,6 +1060,8 @@ function updateMenuState() {
   const shareBtn = document.getElementById('menuShareBtn');
   const resumeBtn = document.getElementById('menuResumeBtn');
   const exitBtn = document.getElementById('menuExitBtn');
+  const accountBtn = document.getElementById('menuAccountBtn');
+  const rewardsStoreBtn = document.getElementById('menuRewardsStoreBtn');
   if (!menuButton || !roomInfo) return;
 
   const inGame = isVisible('gameScreen');
@@ -932,6 +1079,10 @@ function updateMenuState() {
   if (leaveBtn) leaveBtn.disabled = !canLeaveRoom;
   if (returnBtn) returnBtn.disabled = !canLeaveRoom && !inLobby;
   if (shareBtn) shareBtn.textContent = mp.roomCode ? 'Share Room Invite' : 'Share Game Link';
+  if (accountBtn) accountBtn.textContent = auth.username
+    ? 'Account: ' + auth.username + ' - ' + (auth.tokens ?? 0) + ' tokens'
+    : 'Account / Profile';
+  if (rewardsStoreBtn) rewardsStoreBtn.disabled = !auth.sessionToken;
   if (exitBtn) exitBtn.disabled = !auth.sessionToken;
   updateSoundControls();
 }
@@ -958,6 +1109,22 @@ function closeGameMenu() {
   if (button) button.setAttribute('aria-expanded', 'false');
 }
 
+function showAccountProfile() {
+  const name = auth.username || mp.myName || 'Guest player';
+  const tokens = auth.tokens === null || auth.tokens === undefined ? 'Guest balance is not saved' : auth.tokens.toLocaleString() + ' tokens';
+  const room = mp.roomCode ? (mp.isSinglePlayer ? 'Practice game' : 'Room ' + mp.roomCode) : 'Not in a room';
+  closeGameMenu();
+  showThemeAlert(name + '\n' + tokens + '\n' + room, { title: 'Account / Profile', icon: 'P' });
+}
+
+function showRulesHelp() {
+  closeGameMenu();
+  showThemeAlert(
+    'Roll once per turn, select at least one die to lock, and build a qualifying 1 and 4. Up to four other locked dice become your score. Highest qualified score wins the pot.',
+    { title: 'Rules / Help', icon: '1-4' }
+  );
+}
+
 function initGameMenu() {
   const menuButton = document.getElementById('menuButton');
   const closeBtn = document.getElementById('menuCloseBtn');
@@ -966,9 +1133,12 @@ function initGameMenu() {
   const leaveBtn = document.getElementById('menuLeaveBtn');
   const returnBtn = document.getElementById('menuReturnLobbyBtn');
   const shareBtn = document.getElementById('menuShareBtn');
-  const buyBtn = document.getElementById('menuBuyTokensBtn');
+  const accountBtn = document.getElementById('menuAccountBtn');
+  const rewardsStoreBtn = document.getElementById('menuRewardsStoreBtn');
   const redeemBtn = document.getElementById('menuRedeemBtn');
+  const rulesBtn = document.getElementById('menuRulesBtn');
   const soundBtn = document.getElementById('menuSoundBtn');
+  const musicBtn = document.getElementById('menuMusicBtn');
   const volumeRange = document.getElementById('menuVolumeRange');
   const exitBtn = document.getElementById('menuExitBtn');
 
@@ -983,15 +1153,18 @@ function initGameMenu() {
   if (leaveBtn) leaveBtn.addEventListener('click', returnToLobby);
   if (returnBtn) returnBtn.addEventListener('click', returnToLobby);
   if (shareBtn) shareBtn.addEventListener('click', () => shareRoomLink('menuFeedback'));
-  if (buyBtn) buyBtn.addEventListener('click', () => {
+  if (accountBtn) accountBtn.addEventListener('click', showAccountProfile);
+  if (rewardsStoreBtn) rewardsStoreBtn.addEventListener('click', () => {
     closeGameMenu();
-    openTokenPacks();
+    openRewardsStore();
   });
   if (redeemBtn) redeemBtn.addEventListener('click', () => {
     closeGameMenu();
     openRewardRedeem();
   });
+  if (rulesBtn) rulesBtn.addEventListener('click', showRulesHelp);
   if (soundBtn) soundBtn.addEventListener('click', toggleSoundBtn);
+  if (musicBtn) musicBtn.addEventListener('click', toggleMusicBtn);
   if (volumeRange) volumeRange.addEventListener('input', () => {
     if (!window.SFX) return;
     window.SFX.setVolume(Number(volumeRange.value) / 100);
@@ -1072,10 +1245,10 @@ function renderOnlineGame(snap) {
       (p.id === snap.turnPlayerId ? ' active-turn' : '') +
       (p.folded  ? ' folded'      : '') +
       (p.tokens <= 0 ? ' eliminated' : '');
-    const tabQual = hasCompletedQualifyingHand(p) ? '✅' : p.folded ? '❌' : p.rollsUsed > 0 ? '⚠' : '—';
+    const tabQual = hasCompletedQualifyingHand(p) ? themeIcon('OK') : p.folded ? themeIcon('X') : p.rollsUsed > 0 ? themeIcon('!') : '—';
     tab.innerHTML =
       '<div class="tab-name" style="color:' + p.color + '">' + p.name + (p.id === mp.myId ? ' (You)' : '') + '</div>' +
-      '<div class="tab-tokens">💰 ' + p.tokens + '</div>' +
+      '<div class="tab-tokens">' + themeIcon('$') + ' ' + p.tokens + '</div>' +
       '<div class="tab-score">' + tabQual + '</div>' +
       '<div class="turn-arrow">▼</div>';
     strip.appendChild(tab);
@@ -1107,7 +1280,7 @@ function renderOnlineGame(snap) {
       '</div>' +
       '<div class="opp-qual-slots">' + qualHTML + '</div>' +
       '<div class="opp-status ' + (hasQualified ? 'qualified' : p.folded ? '' : 'no14') + '">' +
-        (p.folded ? '❌ Folded' : hasQualified ? '✅ Qualified' : p.rollsUsed > 0 ? '⚠ Playing...' : '⏳ Waiting') +
+        (p.folded ? themeIcon('X') + ' Folded' : hasQualified ? themeIcon('OK') + ' Qualified' : p.rollsUsed > 0 ? themeIcon('!') + ' Playing...' : themeIcon('...') + ' Waiting') +
       '</div>';
     grid.appendChild(card);
   });
@@ -1126,13 +1299,13 @@ function renderOnlineMyBoard(me, snap) {
   const subRound = snap.subRound || 1;
   document.getElementById('lockHint').style.display = me.mustLockBeforeRoll ? '' : 'none';
   document.getElementById('rollZoneLabel').innerHTML = subRound > 1
-    ? '<span class="zone-icon">🎲</span> SUB-ROUND ' + subRound + ' — Roll remaining dice, lock ≥1, then bet | Cost: ' + ROLL_COST
-    : '<span class="zone-icon">🎲</span> ROUND ' + subRound + ' — Roll, select dice to keep, then bet | Cost: ' + ROLL_COST;
+    ? '<span class="zone-icon theme-icon">D6</span> SUB-ROUND ' + subRound + ' — Roll remaining dice, lock ≥1, then bet | Cost: ' + ROLL_COST
+    : '<span class="zone-icon theme-icon">D6</span> ROUND ' + subRound + ' — Roll, select dice to keep, then bet | Cost: ' + ROLL_COST;
 
   const qRow = document.getElementById('qualifyRow');
   qRow.innerHTML = '';
   if (!me.qualifyHand.length) {
-    qRow.innerHTML = '<span class="zone-hint">⚡ Lock a 1 and a 4 (any number per roll)</span>';
+    qRow.innerHTML = '<span class="zone-hint">' + themeIcon('!') + ' Lock a 1 and a 4 (any number per roll)</span>';
   } else {
     me.qualifyHand.forEach(v => {
       const d = document.createElement('div');
@@ -1143,7 +1316,7 @@ function renderOnlineMyBoard(me, snap) {
   const sRow = document.getElementById('scoringRow');
   sRow.innerHTML = '';
   if (!me.scoringHand.length) {
-    sRow.innerHTML = '<span class="zone-hint-dim">🎲 Lock up to 4 scoring dice here</span>';
+    sRow.innerHTML = '<span class="zone-hint-dim">' + themeIcon('D6') + ' Lock up to 4 scoring dice here</span>';
   } else {
     me.scoringHand.forEach(v => {
       const d = document.createElement('div');
@@ -1151,13 +1324,13 @@ function renderOnlineMyBoard(me, snap) {
     });
     const qc = me.qualifyHand.includes(1) && me.qualifyHand.includes(4);
     if (qc)
-      sRow.insertAdjacentHTML('beforeend', '<span class="zone-hint" style="font-size:0.85rem;margin-left:8px">&#9989; Qualified</span>');
+      sRow.insertAdjacentHTML('beforeend', '<span class="zone-hint" style="font-size:0.85rem;margin-left:8px">' + themeIcon('OK') + ' Qualified</span>');
   }
 
   const rRow = document.getElementById('rollRow');
   rRow.innerHTML = '';
   if (!me.currentDice || !me.currentDice.length) {
-    rRow.innerHTML = '<span class="zone-hint">⚡ ' + (me.rollsUsed === 0 ? 'Press ROLL (cost ' + ROLL_COST + ')' : 'Press ROLL DICE for next roll') + '</span>';
+    rRow.innerHTML = '<span class="zone-hint">' + themeIcon('!') + ' ' + (me.rollsUsed === 0 ? 'Press ROLL (cost ' + ROLL_COST + ')' : 'Press ROLL DICE for next roll') + '</span>';
     document.getElementById('lockHintLine').style.display = 'none';
   } else {
     if (!window._onlineSelected) window._onlineSelected = new Set();
@@ -1221,9 +1394,9 @@ function showOnlineBetting(currentBet, bettingPhase) {
   const handStatusEl = document.getElementById('betHandStatus');
   if (handStatusEl) {
     const qualStr = me.qualifyHand.includes(1) && me.qualifyHand.includes(4)
-      ? '✅ Qualified'
-      : (me.qualifyHand.includes(1) ? '🔑 Have 1 — need 4' : me.qualifyHand.includes(4) ? '🔑 Have 4 — need 1' : '🔑 Need 1 and 4');
-    handStatusEl.textContent = qualStr + ' · Scoring: ' + (me.scoringHand ? me.scoringHand.length : 0) + '/4 · ' + slotsLeft + ' dice slot' + (slotsLeft !== 1 ? 's' : '') + ' remaining';
+      ? themeIcon('OK') + ' Qualified'
+      : (me.qualifyHand.includes(1) ? themeIcon('1-4') + ' Have 1 — need 4' : me.qualifyHand.includes(4) ? themeIcon('1-4') + ' Have 4 — need 1' : themeIcon('1-4') + ' Need 1 and 4');
+    handStatusEl.innerHTML = qualStr + ' · Scoring: ' + (me.scoringHand ? me.scoringHand.length : 0) + '/4 · ' + slotsLeft + ' dice slot' + (slotsLeft !== 1 ? 's' : '') + ' remaining';
   }
 
   let betAmt = Math.max(10, callAmt);
@@ -1294,13 +1467,13 @@ function renderOnlineResults(msg) {
   });
   const winners = msg.players.filter(p => msg.winners.includes(p.id));
   if (msg.potWentToHouse) {
-    winEl.innerHTML = '🏦 No one qualified — pot forfeit to the house!';
+    winEl.innerHTML = themeIcon('POT') + ' No one qualified — pot forfeit to the house!';
   } else if (winners.length) {
     const w = winners[0];
     const potShare = Math.floor(msg.pot / winners.length);
     const iWonThis = w.id === mp.myId;
     const wonTag   = iWonThis ? (msg.isSinglePlayer ? ' (+' + potShare + ' practice tokens)' : ' +' + potShare + ' tokens!') : '';
-    winEl.innerHTML = '👑 WINNER: ' + w.name + ' — Score: ' + w.finalScore + wonTag + ' 👑';
+    winEl.innerHTML = themeIcon('WIN') + ' WINNER: ' + w.name + ' — Score: ' + w.finalScore + wonTag + ' ' + themeIcon('WIN');
   } else {
     winEl.textContent = 'No winner this round';
   }
@@ -1333,14 +1506,14 @@ function renderOnlineGameOver(msg) {
   const btn    = document.getElementById('nextRoundBtn');
 
   if (msg.isSinglePlayer) {
-    title.textContent = '🤖 PRACTICE COMPLETE';
+    title.innerHTML = themeIcon('AI') + ' PRACTICE COMPLETE';
   } else {
-    title.textContent = '🎮 GAME OVER';
+    title.innerHTML = themeIcon('END') + ' GAME OVER';
   }
 
   let bodyHtml = sorted.map(p =>
     '<div class="score-row ' + (p.tokens === sorted[0].tokens ? 'winner-row' : '') + '">' +
-      '<div class="score-name">' + p.name + (p.id === mp.myId ? ' (You)' : p.isAI ? ' 🤖' : '') + '</div>' +
+      '<div class="score-name">' + p.name + (p.id === mp.myId ? ' (You)' : p.isAI ? ' ' + themeIcon('AI') : '') + '</div>' +
       '<div class="score-val">' + p.tokens + '</div>' +
     '</div>'
   ).join('');
@@ -1398,48 +1571,9 @@ _origEndBtn.addEventListener('click', () => {
   mp.ws.send(JSON.stringify({ type: 'end_turn' }));
 });
 
-// ── Token packs ───────────────────────────────────────────────────────────────
-function openTokenPacks() {
-  const modal = document.getElementById('tokenPacksModal');
-  if (!modal) return;
-  const note = document.getElementById('tokenPacksLoginNote');
-  if (note) note.style.display = (!auth.sessionToken) ? 'block' : 'none';
-  modal.style.display = 'flex';
-}
-function closeTokenPacks() {
-  const modal = document.getElementById('tokenPacksModal');
-  if (modal) modal.style.display = 'none';
-}
-async function tokenPackBuy(packId) {
+async function openRewardRedeem() {
   if (!auth.sessionToken) {
-    alert('Please sign in to purchase token packs.');
-    closeTokenPacks();
-    return;
-  }
-  const selectorPackId = String(packId).replace(/"/g, '');
-  const btn = document.querySelector('.token-pack-btn[data-pack-id="' + selectorPackId + '"]');
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetch('/api/payments/checkout', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + auth.sessionToken,
-      },
-      body: JSON.stringify({ packId }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Unable to start checkout');
-    window.location.href = data.url;
-  } catch (error) {
-    alert(error.message);
-    if (btn) btn.disabled = false;
-  }
-}
-
-function openRewardRedeem() {
-  if (!auth.sessionToken) {
-    alert('Please sign in to redeem reward codes.');
+    await showThemeAlert('Please sign in to redeem reward codes.', { title: 'Reward Locked', icon: 'WIN' });
     return;
   }
   const modal = document.getElementById('rewardRedeemModal');
@@ -1503,6 +1637,120 @@ if (rewardCodeInput) {
   rewardCodeInput.addEventListener('keypress', event => {
     if (event.key === 'Enter') redeemRewardCode();
   });
+}
+
+function closeRewardsStore() {
+  const modal = document.getElementById('rewardStoreModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function openRewardsStore() {
+  if (!auth.sessionToken) {
+    await showThemeAlert('Please sign in to redeem catalog rewards.', { title: 'Rewards Locked', icon: 'WIN' });
+    return;
+  }
+  const modal = document.getElementById('rewardStoreModal');
+  if (modal) modal.style.display = 'flex';
+  await loadRewardsStore();
+}
+
+async function loadRewardsStore() {
+  const list = document.getElementById('rewardStoreList');
+  const history = document.getElementById('rewardHistoryList');
+  const feedback = document.getElementById('rewardStoreFeedback');
+  if (list) list.innerHTML = '<div class="zone-hint">Loading rewards...</div>';
+  if (history) history.innerHTML = '';
+  if (feedback) feedback.textContent = '';
+  try {
+    const res = await fetch('/api/rewards/catalog', {
+      headers: auth.sessionToken ? { 'Authorization': 'Bearer ' + auth.sessionToken } : {},
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Unable to load rewards');
+    if (typeof data.tokens === 'number') auth.tokens = data.tokens;
+    updateAccountBadge();
+    renderRewardsStore(data);
+  } catch (error) {
+    if (list) list.innerHTML = '<div class="zone-hint-dim">Rewards are unavailable right now.</div>';
+    if (feedback) {
+      feedback.textContent = error.message;
+      feedback.style.color = '#ff6b6b';
+    }
+  }
+}
+
+function renderRewardsStore(data) {
+  const list = document.getElementById('rewardStoreList');
+  const history = document.getElementById('rewardHistoryList');
+  const balance = document.getElementById('rewardStoreBalance');
+  const rewards = data.rewards || [];
+  const redemptions = data.redemptions || [];
+  if (balance) balance.textContent = 'Balance: ' + (data.tokens === null ? 'sign in required' : Number(data.tokens || 0).toLocaleString() + ' tokens');
+
+  if (list) {
+    list.innerHTML = '';
+    if (!rewards.length) {
+      list.innerHTML = '<div class="zone-hint-dim">No active rewards are available yet.</div>';
+    }
+    rewards.forEach(reward => {
+      const card = document.createElement('article');
+      card.className = 'reward-card';
+      const image = reward.imageUrl
+        ? '<img src="' + escapeHtml(reward.imageUrl) + '" alt="">'
+        : '<span class="theme-icon">WIN</span>';
+      const canRedeem = auth.sessionToken && reward.active && reward.available > 0 && Number(data.tokens || 0) >= reward.tokenCost;
+      card.innerHTML =
+        '<div class="reward-card-image">' + image + '</div>' +
+        '<h3>' + escapeHtml(reward.title) + '</h3>' +
+        '<p>' + escapeHtml(reward.description || 'Reward details will be provided after redemption.') + '</p>' +
+        '<div class="reward-card-meta"><span>' + Number(reward.tokenCost).toLocaleString() + ' tokens</span><span>' + Number(reward.available).toLocaleString() + ' left</span></div>' +
+        '<button class="pill-btn pill-btn-gold" type="button"' + (canRedeem ? '' : ' disabled') + '>Redeem</button>';
+      const btn = card.querySelector('button');
+      btn.addEventListener('click', () => redeemCatalogReward(reward));
+      list.appendChild(card);
+    });
+  }
+
+  if (history) {
+    history.innerHTML = redemptions.length ? redemptions.map(item =>
+      '<div class="reward-history-item"><span>' + escapeHtml(item.rewardTitle) + '</span><strong>' + escapeHtml(item.status) + '</strong></div>'
+    ).join('') : '<div class="zone-hint-dim">No reward redemptions yet.</div>';
+  }
+}
+
+async function redeemCatalogReward(reward) {
+  const ok = await showThemeDialog({
+    title: 'Redeem Reward?',
+    message: 'Spend ' + Number(reward.tokenCost).toLocaleString() + ' tokens on ' + reward.title + '?',
+    icon: 'WIN',
+    confirmText: 'REDEEM',
+    cancelText: 'CANCEL',
+  });
+  if (!ok) return;
+
+  const feedback = document.getElementById('rewardStoreFeedback');
+  if (feedback) {
+    feedback.textContent = 'Redeeming reward...';
+    feedback.style.color = '#06d6a0';
+  }
+  try {
+    const res = await fetch('/api/rewards/catalog/' + encodeURIComponent(reward.id) + '/redeem', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + auth.sessionToken },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Unable to redeem reward');
+    auth.tokens = data.tokens;
+    updateAccountBadge();
+    if (window.SFX) window.SFX.reward();
+    if (feedback) feedback.textContent = 'Reward requested. Status: pending.';
+    await loadRewardsStore();
+  } catch (error) {
+    if (feedback) {
+      feedback.textContent = error.message;
+      feedback.style.color = '#ff6b6b';
+    }
+  }
 }
 
 // ANTE, ROLL_COST, MAX_ROLLS, COLORS defined in game.js (loaded before this file)

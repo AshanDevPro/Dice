@@ -45,9 +45,66 @@
     .pill-btn-roll:active { box-shadow: 0 1px 0 #7a1535; }
     .pill-btn-end  { background: linear-gradient(135deg,#e63e6d,#c0225a); color:white; box-shadow:0 4px 0 #7a1535; }
     .pill-btn-end:active  { box-shadow: 0 1px 0 #7a1535; }
+    .pill-btn-gold {
+      background: linear-gradient(135deg,#3a2a10,#18110a);
+      color: #ffd166;
+      border: 1px solid rgba(255,209,102,0.72);
+      box-shadow: 0 4px 0 #5c3a00, 0 0 18px rgba(255,209,102,0.16);
+    }
+    .pill-btn-gold:active { box-shadow: 0 1px 0 #5c3a00; }
+    .pill-btn-practice {
+      background: linear-gradient(135deg,#ffd166,#f5a623 58%,#b87000);
+      color: #201207;
+      border: 1px solid rgba(255,237,177,0.86);
+      box-shadow: 0 4px 0 #765000, 0 0 20px rgba(255,209,102,0.24);
+    }
+    .pill-btn-practice .theme-icon {
+      background: linear-gradient(180deg,rgba(32,18,7,0.88),rgba(77,48,0,0.82));
+      color: #ffd166;
+      border-color: rgba(255,244,204,0.74);
+    }
+    .pill-btn-practice:active { box-shadow: 0 1px 0 #765000; }
+    .btn-mark,
+    .theme-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.35em;
+      height: 1.35em;
+      padding: 0 0.22em;
+      border: 1px solid rgba(255,209,102,0.72);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255,241,190,0.18), rgba(130,78,0,0.28));
+      color: #ffd166;
+      font-family: 'Bebas Neue','Barlow Condensed',sans-serif;
+      font-size: 0.92em;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0;
+      text-shadow: 0 0 10px rgba(255,209,102,0.45);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 10px rgba(255,209,102,0.14);
+      vertical-align: -0.1em;
+    }
     .pill-btn-lock { background: #2a1a4a; color: #c8a8f0; border: 1px solid #5a3a9e; box-shadow: 0 4px 0 #12082a; }
     .pill-btn-lock:active { box-shadow: 0 1px 0 #12082a; }
-    .pill-btn-new  { background: #2a2040; color: #c0b0d8; border: 1px solid #3a2a5a; box-shadow: 0 4px 0 #0a0814; }
+    .pill-btn-new  {
+      background: linear-gradient(135deg,#f12683,#c0225a 58%,#8d123f);
+      color: #fff4cf;
+      border: 1px solid rgba(255,209,102,0.58);
+      box-shadow: 0 4px 0 #6f0f32, 0 0 16px rgba(230,62,109,0.22);
+    }
+    #shareRoomBtn.pill-btn-lock {
+      background: linear-gradient(135deg,#f12683,#c0225a 58%,#8d123f);
+      color: #fff4cf !important;
+      border: 1px solid rgba(255,209,102,0.58);
+      box-shadow: 0 4px 0 #6f0f32, 0 0 16px rgba(230,62,109,0.22);
+    }
+    #lobbyBackBtn.pill-btn-new { color: #fff4cf !important; }
+    .lobby-action-stack {
+      display: grid;
+      gap: 14px;
+      margin-top: 16px;
+    }
     #lobbyError { color: #ff6b6b; text-align: center; padding: 8px; font-size: 0.88rem; min-height: 20px; }
     .lobby-player-entry {
       display: flex; align-items: center; gap: 10px; padding: 8px 12px;
@@ -71,6 +128,64 @@
       margin: 8px 0;
       box-shadow: 0 0 32px rgba(230,62,109,0.3);
       text-align: center;
+    }
+
+    .auth-title {
+      font-family: 'Bebas Neue',sans-serif;
+      font-size: clamp(2rem, 7vw, 3rem);
+      line-height: 0.95;
+      letter-spacing: 0.05em;
+      color: #ffd166;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      text-shadow: 0 3px 0 rgba(0,0,0,0.5), 0 0 16px rgba(255,209,102,0.2);
+    }
+    .auth-title strong { color: #e63e6d; }
+    .game-choice {
+      margin: 0 auto 16px;
+      color: #ffe0a0;
+      font-family: 'Bebas Neue',sans-serif;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .game-choice-title { font-size: 1.2rem; margin-bottom: 6px; }
+    .game-choice-options {
+      display: grid;
+      gap: 6px;
+      width: max-content;
+      max-width: 100%;
+      margin: 0 auto;
+      text-align: left;
+    }
+    .game-choice-options label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #ffd166 !important;
+      font-size: 1.25rem;
+      cursor: pointer;
+    }
+    .game-choice-options input {
+      width: 10px;
+      height: 10px;
+      accent-color: #ffd166;
+    }
+    .auth-register-copy {
+      color: #ffe6a2 !important;
+      text-align: center;
+      font-size: 1rem !important;
+      margin-top: 14px !important;
+    }
+    .auth-link-btn {
+      border: 0;
+      background: transparent;
+      color: #e63e6d !important;
+      font: inherit;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
     }
     .auth-logo {
       width: 96px; height: 96px;
@@ -131,22 +246,67 @@
       display: inline-block; transition: all 0.15s;
     }
     .sound-toggle:hover { border-color: #e63e6d; color: #e63e6d; }
+
+    .theme-message-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(5, 0, 4, 0.72);
+    }
+    .theme-message-modal[hidden] { display: none; }
+    .theme-message-card {
+      width: min(92vw, 390px);
+      padding: 18px;
+      border: 2px solid rgba(255,209,102,0.88);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(255,216,115,0.1), transparent 32%),
+        linear-gradient(150deg, #620027, #17050e 72%);
+      color: #ffe6a2;
+      box-shadow:
+        inset 0 0 0 2px rgba(109,0,40,0.72),
+        0 0 28px rgba(255,209,102,0.22),
+        0 18px 36px rgba(0,0,0,0.58);
+    }
+    .theme-message-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      color: #ffd166;
+      font-family: 'Bebas Neue',sans-serif;
+      font-size: 1.35rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .theme-message-body {
+      color: #fff2c4;
+      font-size: 1rem;
+      line-height: 1.35;
+      margin-bottom: 16px;
+    }
+    .theme-message-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .theme-message-actions.single { grid-template-columns: 1fr; }
   </style>
 </head>
 <body>
 <div id="app">
 
-  <div class="ad-slot ad-slot-top">📢 Advertisement</div>
+  <div class="ad-slot ad-slot-top"><span class="theme-icon">AD</span> Advertisement</div>
 
   <div class="header">
     <div class="brand-lockup">
       <div class="game-title">
-        <img class="title-image" src="assets/Title.png" alt="PigNusDice.com" draggable="false">
+        <img class="title-image logo-with-title" src="assets/logowithtitle.png" alt="PigNusDice.com" draggable="false">
       </div>
-    </div>
-
-    <div class="mascot-showcase" aria-hidden="true">
-      <img class="pig-logo" src="assets/pig_logo.png" alt="" draggable="false">
     </div>
 
     <button class="menu-button" id="menuButton" type="button" title="Menu" aria-label="Open menu" aria-controls="gameMenuPanel" aria-expanded="false"></button>
@@ -158,16 +318,20 @@
       <span>Menu</span>
       <button class="menu-close-btn" id="menuCloseBtn" type="button" aria-label="Close menu">Close</button>
     </div>
+    <div class="game-menu-coins" aria-hidden="true"></div>
     <div class="game-menu-room" id="menuRoomInfo">Lobby</div>
     <button class="game-menu-item" id="menuResumeBtn" type="button">Resume Game</button>
     <button class="game-menu-item" id="menuShareBtn" type="button">Share Invite</button>
     <button class="game-menu-item" id="menuReturnLobbyBtn" type="button">Return to Lobby</button>
     <button class="game-menu-item" id="menuLeaveBtn" type="button">Leave Game</button>
-    <button class="game-menu-item" id="menuBuyTokensBtn" type="button">Purchase Tokens</button>
-    <button class="game-menu-item" id="menuRedeemBtn" type="button">Redeem Rewards</button>
+    <button class="game-menu-item" id="menuAccountBtn" type="button">Account / Profile</button>
+    <button class="game-menu-item" id="menuRewardsStoreBtn" type="button">Rewards Store</button>
+    <button class="game-menu-item" id="menuRedeemBtn" type="button">Redeem Bonus Code</button>
+    <button class="game-menu-item" id="menuRulesBtn" type="button">Rules / Help</button>
     <div class="game-menu-audio" aria-label="Audio settings">
       <div class="game-menu-audio-head">Audio Settings</div>
-      <button class="game-menu-item" id="menuSoundBtn" type="button">Sound On</button>
+      <button class="game-menu-item" id="menuSoundBtn" type="button">Sound Effects On</button>
+      <button class="game-menu-item" id="menuMusicBtn" type="button">Music On</button>
       <label class="game-menu-volume" for="menuVolumeRange">
         <span>Volume</span>
         <input id="menuVolumeRange" type="range" min="0" max="100" step="1" value="70">
@@ -180,30 +344,42 @@
   </nav>
 
   <div class="game-layout">
-    <div class="ad-slot ad-slot-side">📢 Ad</div>
+    <div class="ad-slot ad-slot-side"><span class="theme-icon">AD</span> Ad</div>
 
     <div class="game-main">
 
       <!-- ══ AUTH SCREEN ══ -->
       <div id="authScreen">
-        <div class="auth-tabs">
-          <button class="auth-tab active" id="loginTabBtn">LOGIN</button>
-          <button class="auth-tab"        id="registerTabBtn">REGISTER</button>
+        <div class="signin-advertisement is-empty" aria-label="Advertisement">
+          <img src="assets/advertisement/banner.png" alt="Advertisement" draggable="false" onload="this.parentElement.classList.remove('is-empty')" onerror="this.hidden=true">
+          <span>Advertisement</span>
         </div>
 
         <div id="loginForm">
+          <div class="auth-title">WELCOME! <strong>LOGIN</strong></div>
+          <div class="game-choice" aria-label="Choose your game">
+            <div class="game-choice-title">Choose Your Game</div>
+            <div class="game-choice-options">
+              <label><input type="radio" name="gameChoice" value="onefourtwentyfour" checked><span class="theme-icon">D6</span><span>1-4-24</span></label>
+              <label><input type="radio" name="gameChoice" value="threesaway"><span class="theme-icon">D6</span><span>3's Away</span></label>
+            </div>
+          </div>
           <div class="lobby-row" style="text-align:left;">
-            <label>Email or username</label>
-            <input type="text" id="loginIdentifier" placeholder="you@example.com or username" autocomplete="username" maxlength="254">
+            <label>Username</label>
+            <input type="text" id="loginIdentifier" placeholder="Enter Your Username" autocomplete="username" maxlength="254">
           </div>
           <div class="lobby-row" style="text-align:left;">
             <label>Password</label>
-            <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+            <input type="password" id="loginPassword" placeholder="Enter Your Password" autocomplete="current-password">
           </div>
-          <button class="pill-btn pill-btn-roll" id="loginBtn" style="width:100%;margin-top:8px;">▶ SIGN IN</button>
+          <button class="pill-btn pill-btn-roll" id="loginBtn" style="width:100%;margin-top:8px;"><span class="theme-icon">GO</span><span>SIGN IN</span></button>
+          <div class="auth-divider"><span>or</span></div>
+          <button class="pill-btn pill-btn-new" id="guestBtn" type="button" style="width:100%;justify-content:center;"><span class="theme-icon">P</span><span>PLAY AS GUEST</span></button>
+          <p class="auth-register-copy">New player? <button class="auth-link-btn" id="registerTabBtn" type="button">REGISTER HERE</button></p>
         </div>
 
         <div id="registerForm" style="display:none;">
+          <div class="auth-title">WELCOME! <strong>REGISTER</strong></div>
           <div class="lobby-row" style="text-align:left;">
             <label>Username (3–20 letters, numbers, or _)</label>
             <input type="text" id="regUsername" placeholder="Choose a username" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+">
@@ -216,7 +392,11 @@
             <label>Password (at least 8 characters)</label>
             <input type="password" id="regPassword" placeholder="Choose a secure password" autocomplete="new-password" minlength="8" maxlength="128">
           </div>
-          <button class="pill-btn pill-btn-roll" id="registerBtn" style="width:100%;margin-top:8px;">✅ CREATE ACCOUNT</button>
+          <button class="pill-btn pill-btn-gold" id="registerBtn" style="width:100%;margin-top:8px;">
+            <span class="btn-mark" aria-hidden="true">&#10003;</span>
+            <span>CREATE ACCOUNT</span>
+          </button>
+          <p class="auth-register-copy">Already registered? <button class="auth-link-btn" id="loginTabBtn" type="button">SIGN IN</button></p>
         </div>
 
         <div id="authError"></div>
@@ -234,32 +414,33 @@
             <label>Server</label>
             <input type="text" id="lobbyServer" placeholder="wss://yourdomain.com">
           </div>
-          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
-            <button class="pill-btn pill-btn-roll" id="lobbyCreateBtn" style="flex:1;">🏠 CREATE ROOM</button>
-            <button class="pill-btn pill-btn-end"  id="lobbyJoinBtn"   style="flex:1;">🚪 JOIN ROOM</button>
-          </div>
-          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="pill-btn pill-btn-new" id="vsComputerBtn" style="flex:1;">🤖 PRACTICE vs COMPUTER</button>
+          <div class="lobby-action-stack">
+            <button class="pill-btn pill-btn-gold" id="lobbyCreateBtn"><span class="theme-icon">NEW</span><span>CREATE ROOM</span></button>
+            <button class="pill-btn pill-btn-end" id="lobbyJoinBtn"><span class="theme-icon">IN</span><span>JOIN ROOM</span></button>
+            <button class="pill-btn pill-btn-practice" id="vsComputerBtn"><span class="theme-icon">AI</span><span>PRACTICE vs COMPUTER</span></button>
           </div>
           <div id="lobbyJoinRow" style="display:none;margin-top:10px;">
             <!-- Room browser -->
             <div id="roomBrowserSection">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                 <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">Available Rooms</span>
-                <button id="refreshRoomsBtn" onclick="fetchAndShowRooms()" class="pill-btn pill-btn-new" style="padding:4px 12px;font-size:0.8rem;">🔄 Refresh</button>
+                <button id="refreshRoomsBtn" onclick="fetchAndShowRooms()" class="pill-btn pill-btn-gold" style="padding:4px 12px;font-size:0.8rem;"><span class="theme-icon">R</span><span>Refresh</span></button>
               </div>
               <div id="roomsList" style="min-height:48px;"></div>
             </div>
             <!-- Manual code entry (toggle) -->
             <div style="margin-top:10px;text-align:center;">
-              <button id="enterCodeToggleBtn" onclick="toggleManualCode()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.82rem;font-family:inherit;font-weight:700;letter-spacing:0.06em;text-decoration:underline;">✏️ Have a room code? Enter it here</button>
+              <button id="enterCodeToggleBtn" onclick="toggleManualCode()" style="background:none;border:none;color:var(--gold-bright);cursor:pointer;font-size:0.82rem;font-family:inherit;font-weight:700;letter-spacing:0.06em;text-decoration:underline;"><span class="theme-icon">#</span><span>Have a room code? Enter it here</span></button>
             </div>
             <div id="manualCodeRow" style="display:none;margin-top:8px;">
               <div class="lobby-row">
                 <label>Room Code</label>
                 <input type="text" id="lobbyCode" placeholder="e.g. AB3X" maxlength="4" style="text-transform:uppercase;letter-spacing:0.2em;font-size:1.2rem;">
               </div>
-              <button class="pill-btn pill-btn-end" id="lobbyJoinConfirmBtn" style="width:100%;margin-top:8px;">✅ JOIN</button>
+              <button class="pill-btn pill-btn-gold" id="lobbyJoinConfirmBtn" style="width:100%;margin-top:8px;">
+                <span class="btn-mark" aria-hidden="true">&#10003;</span>
+                <span>JOIN</span>
+              </button>
             </div>
           </div>
         </div>
@@ -268,12 +449,12 @@
           <div style="text-align:center;padding:20px 0 10px;">
             <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--muted);letter-spacing:0.14em;margin-bottom:6px;">ROOM CODE</div>
             <div id="lobbyRoomCode" style="font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:var(--gold-bright);letter-spacing:0.3em;text-shadow:0 0 20px rgba(255,209,102,0.5);"></div>
-            <button class="pill-btn pill-btn-lock" id="shareRoomBtn" style="margin-top:10px;width:100%;" onclick="shareRoomLink()">📤 SHARE ROOM LINK</button>
+            <button class="pill-btn pill-btn-lock" id="shareRoomBtn" style="margin-top:10px;width:100%;" onclick="shareRoomLink()"><span class="theme-icon">UP</span><span>SHARE ROOM LINK</span></button>
             <div id="shareFeedback" style="font-size:0.75rem;color:#06d6a0;margin-top:5px;min-height:16px;"></div>
           </div>
           <div id="lobbyPlayerList" style="margin-bottom:16px;"></div>
           <div id="lobbyStatusMsg" style="text-align:center;color:var(--muted);font-size:0.85rem;margin-bottom:12px;">Waiting for players...</div>
-          <button class="pill-btn pill-btn-roll" id="lobbyStartBtn" style="width:100%;display:none;">🎲 START GAME</button>
+          <button class="pill-btn pill-btn-roll" id="lobbyStartBtn" style="width:100%;display:none;"><span class="theme-icon">D6</span><span>START GAME</span></button>
           <button class="pill-btn pill-btn-new"  id="lobbyBackBtn"  style="width:100%;margin-top:8px;">← Back</button>
         </div>
 
@@ -282,6 +463,12 @@
 
       <!-- ══ GAME SCREEN ══ -->
       <div id="gameScreen" style="display:none;">
+
+        <div class="game-play-hero" aria-hidden="true">
+          <div class="game-play-logo">
+            <img src="assets/logowithtitle.png" alt="PigNusDice.com" draggable="false">
+          </div>
+        </div>
 
         <!-- Player token strip -->
         <div class="players-strip" id="playersStrip"></div>
@@ -298,7 +485,7 @@
             <span class="pot-info-value" id="roundInfoDisplay">1</span>
           </div>
           <div class="pot-info-center">
-            <span class="pot-icon">🏦</span>
+            <span class="pot-icon theme-icon">POT</span>
             <span class="pot-info-value pot-highlight" id="potInfoDisplay">0</span>
             <span class="pot-info-label">TOKENS IN POT</span>
           </div>
@@ -313,7 +500,7 @@
 
         <!-- Round results inline bar -->
         <div id="resultsBar">
-          <div class="results-bar-title">🏆 ROUND RESULTS 🏆</div>
+          <div class="results-bar-title"><span class="theme-icon">WIN</span> ROUND RESULTS <span class="theme-icon">WIN</span></div>
           <div class="results-bar-scores" id="resultsBarScores"></div>
           <div class="results-bar-winner" id="resultsBarWinner"></div>
         </div>
@@ -323,16 +510,16 @@
 
           <div class="board-header">
             <div class="board-title-group">
-              <span style="font-size:1.1rem;">🎲</span>
+              <span class="theme-icon">D6</span>
               <div class="board-player-name" id="activeName">YOU</div>
             </div>
             <div class="board-right-info">
               <div class="board-tokens-tag">
-                <span>🪙</span>
+                <span class="theme-icon">$</span>
                 <span>TOKENS: <strong id="activeTokensVal">500</strong></span>
               </div>
               <div class="board-ante-tag">
-                <span>🎲</span>
+                <span class="theme-icon">D6</span>
                 <span id="anteRollTag">ANTE: 50 | ROLL COST: 10</span>
               </div>
             </div>
@@ -347,44 +534,44 @@
           </div>
 
           <!-- Qualification hand zone -->
-          <div class="hand-zone">
+          <div class="hand-zone qualify-zone">
             <div class="zone-label">
-              <span class="zone-icon">🔑</span>
+              <span class="zone-icon theme-icon">1-4</span>
               QUALIFICATION HAND (must lock a 1 AND a 4)
             </div>
             <div class="dice-row" id="qualifyRow">
-              <span class="zone-hint">⚡ Lock a 1 and a 4 (any number per roll)</span>
+              <span class="zone-hint"><span class="theme-icon">!</span> Lock a 1 and a 4 (any number per roll)</span>
             </div>
           </div>
 
           <!-- Scoring hand zone -->
-          <div class="hand-zone">
+          <div class="hand-zone scoring-zone">
             <div class="zone-label">
-              <span class="zone-icon">🎯</span>
+              <span class="zone-icon theme-icon">SUM</span>
               SCORING HAND (max 4 dice - sum = final score)
             </div>
             <div class="dice-row" id="scoringRow">
-              <span class="zone-hint-dim">🎲 Lock up to 4 scoring dice here</span>
+              <span class="zone-hint-dim"><span class="theme-icon">D6</span> Lock up to 4 scoring dice here</span>
             </div>
           </div>
 
           <!-- Current roll zone -->
-          <div class="hand-zone">
+          <div class="hand-zone roll-zone">
             <div class="zone-label" id="rollZoneLabel">
-              <span class="zone-icon">🎲</span>
+              <span class="zone-icon theme-icon">D6</span>
               CURRENT ROLL (rolls: 0/6) | Cost: 10
             </div>
             <div class="dice-row" id="rollRow">
-              <span class="zone-hint">⚡ Press ROLL (cost 10)</span>
+              <span class="zone-hint"><span class="theme-icon">!</span> Press ROLL (cost 10)</span>
             </div>
             <div id="lockHintLine" style="display:none; margin-top:6px; font-size:0.75rem; color:#06d6a0; text-align:center;">
-              ✅ Select any number of dice (minimum 1) then press LOCK
+              <span class="theme-icon">OK</span> Select any number of dice (minimum 1) then press LOCK
             </div>
           </div>
 
           <!-- Mid-roll betting strip -->
           <div id="midRollBetting">
-            <div class="mid-bet-title">🪙 BET BEFORE NEXT ROLL</div>
+            <div class="mid-bet-title"><span class="theme-icon">$</span> BET BEFORE NEXT ROLL</div>
             <div class="mid-bet-row">
               <button class="step-btn" id="midBetMinus">−</button>
               <input type="number" class="bet-display" id="midBetDisplay" value="10" min="10" step="10">
@@ -411,7 +598,7 @@
 
         <!-- Between-turns betting panel -->
         <div id="bettingPanel">
-          <div class="betting-title">🪙 BETTING — <span id="bettingPlayerName"></span></div>
+          <div class="betting-title"><span class="theme-icon">$</span> BETTING — <span id="bettingPlayerName"></span></div>
           <div id="betHandStatus" style="font-size:0.78rem;color:var(--muted);margin-bottom:8px;text-align:center;"></div>
           <div class="bet-controls">
             <button class="step-btn" id="betMinus">−</button>
@@ -430,35 +617,11 @@
       </div><!-- /gameScreen -->
     </div><!-- /game-main -->
 
-    <div class="ad-slot ad-slot-side">📢 Ad</div>
+    <div class="ad-slot ad-slot-side"><span class="theme-icon">AD</span> Ad</div>
   </div><!-- /game-layout -->
 
-  <div class="ad-slot ad-slot-bottom">📢 Advertisement</div>
+  <div class="ad-slot ad-slot-bottom"><span class="theme-icon">AD</span> Advertisement</div>
 </div><!-- /app -->
-
-<!-- Token Packs Modal -->
-<div id="tokenPacksModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:200;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeTokenPacks()">
-  <div style="background:#1e1a2e;border:2px solid #e63e6d;border-radius:22px;padding:24px;max-width:400px;width:100%;max-height:90dvh;overflow-y:auto;box-shadow:0 0 40px rgba(230,62,109,0.3);">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.12em;text-align:center;margin-bottom:4px;color:#ffd166;">🪙 BUY TOKENS</div>
-    <div style="text-align:center;font-size:0.82rem;color:#6a5a80;margin-bottom:18px;">Boost your stack with a token pack</div>
-    <div id="tokenPacksLoginNote" style="display:none;text-align:center;background:rgba(230,62,109,0.1);border:1px solid rgba(230,62,109,0.3);border-radius:10px;padding:10px;margin-bottom:14px;font-size:0.85rem;color:#e63e6d;">Sign in to an account to purchase tokens</div>
-    <div class="token-pack-card">
-      <div class="token-pack-info"><div class="token-pack-amount">1,000 Tokens</div><div class="token-pack-price">$0.99</div></div>
-      <button class="token-pack-btn" data-pack-id="starter" onclick="tokenPackBuy('starter')">BUY</button>
-    </div>
-    <div class="token-pack-card token-pack-featured">
-      <div class="token-pack-badge">POPULAR</div>
-      <div class="token-pack-info"><div class="token-pack-amount">5,000 Tokens</div><div class="token-pack-price">$3.99</div></div>
-      <button class="token-pack-btn" data-pack-id="popular" onclick="tokenPackBuy('popular')">BUY</button>
-    </div>
-    <div class="token-pack-card">
-      <div class="token-pack-badge token-pack-badge-value">BEST VALUE</div>
-      <div class="token-pack-info"><div class="token-pack-amount">15,000 Tokens</div><div class="token-pack-price">$9.99</div></div>
-      <button class="token-pack-btn" data-pack-id="value" onclick="tokenPackBuy('value')">BUY</button>
-    </div>
-    <button onclick="closeTokenPacks()" class="pill-btn pill-btn-new" style="width:100%;margin-top:16px;justify-content:center;">✕ Close</button>
-  </div>
-</div>
 
 <!-- Reward Redeem Modal -->
 <div id="rewardRedeemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:210;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeRewardRedeem()">
@@ -472,6 +635,37 @@
     <div id="rewardRedeemFeedback" style="min-height:20px;text-align:center;font-size:0.86rem;margin:8px 0;"></div>
     <button onclick="redeemRewardCode()" id="rewardRedeemBtn" class="pill-btn pill-btn-roll" style="width:100%;justify-content:center;">REDEEM</button>
     <button onclick="closeRewardRedeem()" class="pill-btn pill-btn-new" style="width:100%;margin-top:10px;justify-content:center;">Close</button>
+  </div>
+</div>
+
+<!-- Rewards Store Modal -->
+<div id="rewardStoreModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:212;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeRewardsStore()">
+  <div class="reward-store-shell">
+    <div class="reward-store-head">
+      <div>
+        <div class="reward-store-title"><span class="theme-icon">WIN</span> REWARDS STORE</div>
+        <div class="reward-store-subtitle" id="rewardStoreBalance">Sign in to spend tokens on rewards.</div>
+      </div>
+      <button onclick="closeRewardsStore()" class="menu-close-btn" type="button">Close</button>
+    </div>
+    <div id="rewardStoreFeedback" class="reward-store-feedback" role="status"></div>
+    <div id="rewardStoreList" class="reward-store-grid"></div>
+    <div class="reward-history-title">Your Redemptions</div>
+    <div id="rewardHistoryList" class="reward-history-list"></div>
+  </div>
+</div>
+
+<div class="theme-message-modal" id="themeMessageModal" hidden>
+  <div class="theme-message-card" role="dialog" aria-modal="true" aria-labelledby="themeMessageTitle" aria-describedby="themeMessageBody">
+    <div class="theme-message-head">
+      <span class="theme-icon" id="themeMessageIcon" aria-hidden="true">D6</span>
+      <span id="themeMessageTitle">Game Message</span>
+    </div>
+    <div class="theme-message-body" id="themeMessageBody"></div>
+    <div class="theme-message-actions" id="themeMessageActions">
+      <button class="pill-btn pill-btn-new" id="themeMessageCancel" type="button">Cancel</button>
+      <button class="pill-btn pill-btn-gold" id="themeMessageConfirm" type="button">OK</button>
+    </div>
   </div>
 </div>
 

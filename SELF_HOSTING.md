@@ -68,7 +68,7 @@ server {
 }
 ```
 
-Configure a valid TLS certificate before exposing accounts on the internet. Set `PUBLIC_URL=https://your-domain.example` for payment redirects and `FORCE_HTTPS=true` if the Node server may receive direct public HTTP requests. Never send passwords over plain HTTP on a public network.
+Configure a valid TLS certificate before exposing accounts on the internet. Set `PUBLIC_URL=https://your-domain.example` for public room invite links and `FORCE_HTTPS=true` if the Node server may receive direct public HTTP requests. Never send passwords over plain HTTP on a public network.
 
 ## 5. Back up your database
 
