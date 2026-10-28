@@ -1239,9 +1239,11 @@ function renderOnlineGame(snap) {
 
   const strip = document.getElementById('playersStrip');
   strip.innerHTML = '';
+  strip.classList.toggle('many-players', snap.players.length > 2);
   snap.players.forEach(p => {
     const tab = document.createElement('div');
     tab.className = 'player-tab' +
+      (p.id === mp.myId ? ' is-self' : '') +
       (p.id === snap.turnPlayerId ? ' active-turn' : '') +
       (p.folded  ? ' folded'      : '') +
       (p.tokens <= 0 ? ' eliminated' : '');

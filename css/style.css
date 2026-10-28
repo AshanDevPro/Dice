@@ -2350,7 +2350,7 @@ body.game-active .game-main {
 body.game-active #gameScreen {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 6px;
   height: 100%;
   min-height: 0;
@@ -2385,11 +2385,17 @@ body.game-active .game-play-logo img {
 }
 
 body.game-active .players-strip {
-  grid-column: 1 / -1;
+  grid-column: 1 / 2;
+  grid-row: 2;
   min-height: 0;
-  margin: 0 46px 0 0;
+  margin: 0;
   padding: 0 0 4px;
   gap: 6px;
+}
+
+/* At larger tables on a phone, keep only the local and active player summaries. */
+body.game-active .players-strip.many-players .player-tab:not(.is-self):not(.active-turn) {
+  display: none;
 }
 
 body.game-active .player-tab {
@@ -2414,7 +2420,7 @@ body.game-active .turn-arrow {
 
 body.game-active .pot-info-bar {
   grid-column: 2 / 3;
-  grid-row: 3;
+  grid-row: 2;
   grid-template-columns: minmax(0, 1fr) 84px;
   min-height: 96px;
   margin: 0;
@@ -2467,9 +2473,7 @@ body.game-active .practice-badge-wrap {
 }
 
 body.game-active .opponents-grid {
-  grid-column: 1 / 2;
-  grid-row: 3;
-  display: flex;
+  display: none;
   gap: 6px;
   min-height: 0;
   margin: 0;
@@ -2528,7 +2532,7 @@ body.game-active .opp-status {
 
 body.game-active .active-board {
   grid-column: 1 / -1;
-  grid-row: 4;
+  grid-row: 3;
   display: grid;
   grid-template-rows:
     auto
@@ -2747,7 +2751,7 @@ body.game-active .msg-box {
 
 body.game-active #bettingPanel {
   grid-column: 1 / -1;
-  grid-row: 4;
+  grid-row: 3;
   max-height: 100%;
   margin: 0;
   padding: 10px;
@@ -2756,6 +2760,7 @@ body.game-active #bettingPanel {
 
 body.game-active #resultsBar {
   grid-column: 1 / -1;
+  grid-row: 4;
   margin: 0;
   padding: 8px;
 }
@@ -2856,7 +2861,7 @@ body.game-active #resultsBar {
   }
 
   body.game-active .players-strip {
-    margin-right: 42px;
+    margin-right: 0;
   }
 
   body.game-active .player-tab {
@@ -2920,6 +2925,7 @@ body.game-active #resultsBar {
   }
 
   body.game-active .player-tab {
+    display: block;
     min-width: 0;
     padding: 10px 12px;
     border-radius: 10px;
